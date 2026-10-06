@@ -34,7 +34,7 @@ Client.prototype.startMinecraft = function (launchArguments) {
     if (fs.existsSync(javaw)) exe = javaw;
   }
   const mc = child.spawn(exe, launchArguments, {
-    cwd: this.options.overrides.cwd || this.options.overrides.gameDirectory || this.options.root,
+    cwd: this.options.overrides.cwd || this.options.root,
     detached: this.options.overrides.detached,
     windowsHide: true,
   });
@@ -110,7 +110,9 @@ async function launch(target, { onProgress, onLog, onExit }) {
       ? { fullscreen: true }
       : { width: String(s.resolution.width), height: String(s.resolution.height) },
     customArgs: s.jvmArgs ? s.jvmArgs.split(/\s+/).filter(Boolean) : undefined,
-    overrides: { gameDirectory: gameDir, detached: false, maxSockets: 8 },
+    // cwd = папка инстанса: туда MCLC кладёт log4j-конфиг (защита от Log4Shell для 1.7–1.16),
+    // и игра должна стартовать оттуда же, иначе относительный путь к конфигу не найдётся
+    overrides: { gameDirectory: gameDir, cwd: gameDir, detached: false, maxSockets: 8 },
     timeout: 60000,
   };
 
