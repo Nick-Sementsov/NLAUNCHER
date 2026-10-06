@@ -1,0 +1,83 @@
+{
+  "name": "km-launcher",
+  "productName": "KM Launcher",
+  "version": "1.0.0",
+  "description": "KM Launcher — лаунчер Minecraft",
+  "author": "KM",
+  "license": "UNLICENSED",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node scripts/check.js",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:dir": "electron-builder --dir"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "electron-updater": "^6.8.9",
+    "minecraft-launcher-core": "^3.18.2",
+    "msmc": "^5.0.5"
+  },
+  "devDependencies": {
+    "@fontsource/cormorant-sc": "^5.3.0",
+    "@fontsource/kurale": "^5.3.0",
+    "@fontsource/ruslan-display": "^5.3.0",
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ru.km.launcher",
+    "productName": "KM Launcher",
+    "copyright": "KM",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "KM-Launcher-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "KM Launcher",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "language": "1049",
+      "multiLanguageInstaller": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "build/icon.png",
+      "category": "Game"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Nick-Sementsov",
+        "repo": "NLAUNCHER",
+        "releaseType": "release"
+      }
+    ]
+  }
+}
