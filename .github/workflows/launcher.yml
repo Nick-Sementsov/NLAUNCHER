@@ -54,9 +54,7 @@ jobs:
           cache-dependency-path: launcher/package-lock.json
       - run: npm ci
       - name: Сборка установщика
-        run: npx electron-builder --win nsis --x64 --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win nsis --x64 --publish never
       - name: Снимок интерфейса
         shell: pwsh
         run: |
@@ -75,3 +73,16 @@ jobs:
         with:
           name: ui-screenshot
           path: launcher/ui-home.png
+      # Релиз: тег v* или коммит с [release] в сообщении. Версия берётся из launcher/package.json.
+      # Лаунчер сам обновляется из последнего релиза (electron-updater читает latest.yml).
+      - name: Публикация в Releases
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $v = "v" + (Get-Content package.json -Raw | ConvertFrom-Json).version
+          gh release view $v --repo ${{ github.repository }} *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Релиз $v уже есть: подними version в launcher/package.json" }
+          $files = @(Get-ChildItem dist/*.exe, dist/*.blockmap, dist/latest.yml | ForEach-Object FullName)
+          gh release create $v @files --repo ${{ github.repository }} --target ${{ github.sha }} --title "KM Launcher $($v.Substring(1))" --notes-file ../.github/release-notes.md
