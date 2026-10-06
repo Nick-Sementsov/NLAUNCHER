@@ -42,7 +42,7 @@ node scripts/smoke.js vanilla 1.20.1   # полный цикл: Java → фай�
 npm run dist:win     # собрать установщик (на Windows или Linux с wine)
 ```
 
-Выпуск новой версии: поднять `version` в `launcher/package.json`, создать тег `vX.Y.Z` и запушить его.
+Выпуск новой версии: поднять `version` в `launcher/package.json` и запушить тег `vX.Y.Z` (или коммит с `[release]` в сообщении).
 GitHub Actions соберёт установщик и выложит его в Releases, а установленные лаунчеры обновятся сами.
 
 ## Вход через Microsoft
