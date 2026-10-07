@@ -271,7 +271,7 @@ function renderVersions(quiet = false) {
 
   if (!cards.length) {
     grid.innerHTML = `<p class="empty">${state.kind === 'server'
-      ? 'Панель сервера не прислала сборок. Проверь адрес панели в настройках.'
+      ? 'Сборок сервера пока нет.'
       : state.versions ? 'Ничего не нашлось.' : 'Загружаем список версий…'}</p>`;
     return;
   }
@@ -393,7 +393,6 @@ function renderSettings() {
   $('#chkFullscreen').checked = !!s.resolution.fullscreen;
   $('#chkClose').checked = !!s.closeOnLaunch;
   $('#jvmArgs').value = s.jvmArgs || '';
-  $('#panelUrl').value = s.panelUrl || '';
   $('#chkSnapshots').checked = !!s.showSnapshots;
   $('#dirHint').textContent = 'Игра хранится в ' + state.info.gameDir;
 }
@@ -414,6 +413,8 @@ function applyLook() {
   root.dataset.theme = s.theme || 'royal';
   root.classList.toggle('no-anim', s.animations === false);
   root.classList.toggle('no-intro', s.intro === false);
+  weather.set(s.theme || 'royal');
+  weather.enable(s.animations !== false);
   try { localStorage.setItem('km-look', JSON.stringify({ theme: s.theme, animations: s.animations, intro: s.intro })); } catch {}
   const list = $('#themeList');
   list.innerHTML = '';
@@ -456,7 +457,6 @@ $('#resH').onchange = saveRes;
 $('#chkFullscreen').onchange = saveRes;
 $('#chkClose').onchange = e => saveSetting({ closeOnLaunch: e.target.checked });
 $('#jvmArgs').onchange = e => saveSetting({ jvmArgs: e.target.value.trim() });
-$('#panelUrl').onchange = e => { saveSetting({ panelUrl: e.target.value.trim() }); loadPanel(); };
 
 // ── Консоль ─────────────────────────────────────────────────────
 const consoleEl = $('#console');
@@ -561,6 +561,69 @@ km.on.update(u => {
   const done = () => intro.remove();
   intro.addEventListener('click', () => { intro.classList.add('skip'); setTimeout(done, 320); });
   setTimeout(done, 3100);
+})();
+
+// ── Погода: свои частицы у каждой темы ─────────────────────────
+const weather = (() => {
+  const cv = $('#weather');
+  const ctx = cv.getContext('2d');
+  const KINDS = {
+    royal:  { n: 40, make: () => ({ r: 1 + Math.random() * 1.6, vx: (Math.random() - .5) * .15, vy: -.12 - Math.random() * .2, c: '242,210,124', tw: true }) },
+    forest: { n: 34, make: () => Math.random() < .55
+      ? ({ leaf: true, r: 4 + Math.random() * 3, vx: .2 + Math.random() * .5, vy: .5 + Math.random() * .6, rot: Math.random() * 6, vr: (Math.random() - .5) * .05, c: ['122,150,60', '170,110,40', '140,70,30'][Math.random() * 3 | 0] })
+      : ({ r: 1.4 + Math.random(), vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3, c: '216,255,106', tw: true, glow: true }) },
+    dragon: { n: 55, make: () => ({ r: .8 + Math.random() * 1.8, vx: (Math.random() - .5) * .4, vy: -.5 - Math.random() * .9, c: Math.random() < .7 ? '255,140,40' : '255,210,120', glow: true, life: true }) },
+    ice:    { n: 90, make: () => ({ r: 1 + Math.random() * 2.4, vx: -.2 + Math.random() * .4, vy: .4 + Math.random() * .9, c: '240,248,255', sway: Math.random() * 6 }) },
+    purple: { n: 45, make: () => ({ r: .8 + Math.random() * 1.6, vx: (Math.random() - .5) * .25, vy: -.1 - Math.random() * .25, c: Math.random() < .5 ? '195,139,255' : '125,255,200', tw: true, glow: true }) },
+    night:  { n: 110, make: () => ({ rain: true, r: 10 + Math.random() * 10, vx: -1.2, vy: 9 + Math.random() * 5, c: '170,185,220' }) },
+  };
+  let parts = [], kind = 'royal', run = true, t = 0;
+  function size() { cv.width = innerWidth; cv.height = innerHeight; }
+  function spawn(p, anywhere) {
+    const k = KINDS[kind];
+    Object.assign(p, k.make());
+    p.x = Math.random() * cv.width;
+    p.y = anywhere ? Math.random() * cv.height : (p.vy > 0 ? -20 : cv.height + 20);
+    p.a = p.life ? 1 : .35 + Math.random() * .5;
+    p.ph = Math.random() * 6;
+    return p;
+  }
+  function set(k) {
+    kind = KINDS[k] ? k : 'royal';
+    parts = Array.from({ length: KINDS[kind].n }, () => spawn({}, true));
+  }
+  function frame() {
+    t += 1;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (run) for (const p of parts) {
+      p.x += p.vx + (p.sway ? Math.sin((t + p.sway * 50) / 40) * .4 : 0);
+      p.y += p.vy;
+      if (p.rot !== undefined) p.rot += p.vr;
+      if (p.life) p.a -= .004;
+      if (p.y < -30 || p.y > cv.height + 30 || p.x < -30 || p.x > cv.width + 30 || p.a <= 0) spawn(p);
+      let a = p.a;
+      if (p.tw) a *= .55 + .45 * Math.sin(t / 25 + p.ph);
+      ctx.globalAlpha = Math.max(0, a);
+      if (p.rain) {
+        ctx.strokeStyle = `rgba(${p.c},.5)`; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + p.vx * 2, p.y + p.r); ctx.stroke();
+      } else if (p.leaf) {
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.fillStyle = `rgb(${p.c})`;
+        ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r / 2.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      } else {
+        if (p.glow) { ctx.shadowBlur = 8; ctx.shadowColor = `rgb(${p.c})`; }
+        ctx.fillStyle = `rgb(${p.c})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  addEventListener('resize', size);
+  size(); set(document.documentElement.dataset.theme); frame();
+  return { set, enable: on => { run = on; cv.style.display = on ? '' : 'none'; } };
 })();
 
 // ── Искры над нижней панелью ─────────────────────────────────────

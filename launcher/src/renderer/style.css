@@ -107,7 +107,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .titlebar {
   height: 44px; flex-shrink: 0;
   display: flex; align-items: center;
-  background: var(--masonry), linear-gradient(180deg, #3a3f50, #2a2e3b 60%, #20232d);
+  background: var(--masonry), linear-gradient(180deg, var(--wall-1, #3a3f50), var(--wall-2, #2a2e3b) 60%, var(--wall-3, #20232d));
   position: relative; z-index: 5;
   -webkit-app-region: drag;
   box-shadow: 0 4px 14px rgba(0,0,0,.6);
@@ -115,7 +115,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .titlebar::after {
   /* зубцы стены */
   content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px;
-  background: repeating-linear-gradient(90deg, #20232d 0 22px, transparent 22px 34px);
+  background: repeating-linear-gradient(90deg, var(--wall-3, #20232d) 0 22px, transparent 22px 34px);
   pointer-events: none;
 }
 .tb-brand { display: flex; align-items: center; gap: 10px; padding: 0 16px; }
@@ -149,8 +149,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   width: 172px; flex-shrink: 0;
   display: flex; flex-direction: column; gap: 8px;
   padding: 16px 14px;
-  background: var(--masonry), linear-gradient(90deg, #171a23, #1e2230);
-  border-right: 2px solid #2d3242;
+  background: var(--masonry), linear-gradient(90deg, var(--side-1, #171a23), var(--side-2, #1e2230));
+  border-right: 2px solid var(--edge, #2d3242);
   box-shadow: inset -10px 0 20px rgba(0,0,0,.35);
 }
 .banner {
@@ -159,8 +159,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   padding: 11px 12px 18px;
   font-family: var(--f-head); font-weight: 700; font-size: 18px; letter-spacing: .5px;
   color: var(--muted);
-  background: linear-gradient(180deg, #2a2f3e, #222634);
-  border-top: 3px solid #3d4356;
+  background: linear-gradient(180deg, var(--ban-1, #2a2f3e), var(--ban-2, #222634));
+  border-top: 3px solid var(--edge-hi, #3d4356);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%);
   transition: color .15s, background .2s, transform .2s;
 }
@@ -234,7 +234,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   padding: 22px 24px;
   background:
     var(--noise),
-    radial-gradient(ellipse at 30% 20%, #f6eacb 0%, var(--parch) 45%, var(--parch-dark) 100%);
+    radial-gradient(ellipse at 30% 20%, var(--parch-hi, #f6eacb) 0%, var(--parch) 45%, var(--parch-dark) 100%);
   border-radius: 3px;
   box-shadow: inset 0 0 40px rgba(110,70,20,.32), inset 0 0 6px rgba(80,50,15,.4), 0 8px 22px rgba(0,0,0,.55);
 }
@@ -281,8 +281,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 /* Табличка: камень с золотой каймой */
 .plaque {
   padding: 16px 18px;
-  background: var(--masonry), linear-gradient(180deg, #2c3140, #1e2230);
-  border: 2px solid #3a4054;
+  background: var(--masonry), linear-gradient(180deg, var(--ban-1, #2c3140), var(--side-2, #1e2230));
+  border: 2px solid var(--edge-hi, #3a4054);
   outline: 1px solid var(--gold-700); outline-offset: -7px;
   border-radius: 3px;
   box-shadow: 0 6px 18px rgba(0,0,0,.5);
@@ -405,7 +405,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   padding: 0 20px;
   background:
     repeating-linear-gradient(90deg, rgba(0,0,0,.1) 0 2px, transparent 2px 11px),
-    linear-gradient(180deg, #5a3b22, #432a17 45%, #2a190c);
+    linear-gradient(180deg, var(--wood-1, #5a3b22), var(--wood-2, #432a17) 45%, var(--wood-3, #2a190c));
   border-top: 3px solid #4a4f5e;
   box-shadow: 0 -4px 14px rgba(0,0,0,.55), inset 0 3px 0 rgba(0,0,0,.4);
   position: relative;
@@ -662,35 +662,100 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 /* ══ Темы ══════════════════════════════════════════════════════ */
 :root[data-theme="forest"] {
+  --roof1: #12321c; --roof2: #2b6a3c;
   --stone-950: #0a0e0b; --stone-900: #101611; --stone-800: #172019; --stone-700: #212c23; --glow: #1f3324;
   --azure-900: #10301a; --azure: #2b6a3c; --azure-light: #4a9a5c;
   --gules: #7a3b12; --gules-light: #a3561e;
 }
-:root[data-theme="forest"] .hero-scene { filter: hue-rotate(-95deg) saturate(.75); }
 :root[data-theme="dragon"] {
+  --roof1: #3a0c0c; --roof2: #8f1d1d;
   --stone-950: #0f0a09; --stone-900: #170f0d; --stone-800: #211512; --stone-700: #2d1d18; --glow: #3a1a12;
   --azure-900: #4a0f0f; --azure: #8f1d1d; --azure-light: #c0392b;
   --gules: #b3541e; --gules-light: #e07a2e; --gold: #f2b84b; --gold-light: #ffd57a;
 }
-:root[data-theme="dragon"] .hero-scene { filter: hue-rotate(160deg) saturate(1.3) brightness(.95); }
 :root[data-theme="ice"] {
+  --roof1: #5a86b0; --roof2: #cfe6f7;
   --stone-950: #0b1017; --stone-900: #111924; --stone-800: #182333; --stone-700: #223044; --glow: #233a55;
   --azure-900: #1d3b55; --azure: #3c78a8; --azure-light: #7fb4dc;
   --gules: #2c5d80; --gules-light: #4a86b0; --gold-700: #8f9aa8; --gold: #c9d3de; --gold-light: #eef4fa;
 }
-:root[data-theme="ice"] .hero-scene { filter: hue-rotate(-15deg) saturate(.7) brightness(1.15); }
 :root[data-theme="purple"] {
+  --roof1: #2c1450; --roof2: #6a40b0;
   --stone-950: #0d0a12; --stone-900: #140f1c; --stone-800: #1d1628; --stone-700: #281e37; --glow: #2e1c4a;
   --azure-900: #2c1450; --azure: #55309a; --azure-light: #7d55c7;
   --gules: #8f1d4a; --gules-light: #b52f66;
 }
-:root[data-theme="purple"] .hero-scene { filter: hue-rotate(45deg) saturate(1.1); }
 :root[data-theme="night"] {
+  --roof1: #1a1c24; --roof2: #3a3f4f;
   --stone-950: #08080a; --stone-900: #0e0e11; --stone-800: #151519; --stone-700: #1e1e24; --glow: #1c1c22;
   --azure-900: #22252f; --azure: #3a3f4f; --azure-light: #5a6075;
   --gules: #5a2a2a; --gules-light: #7a3a3a; --gold-700: #7a7a88; --gold: #b8b8c8; --gold-light: #e2e2ee;
 }
-:root[data-theme="night"] .hero-scene { filter: grayscale(.7) brightness(.8); }
+/* поверхности каждой темы */
+:root[data-theme="forest"] {
+  --wall-1: #33402f; --wall-2: #263124; --wall-3: #1b241a; --side-1: #121a12; --side-2: #18221a; --ban-1: #263325; --ban-2: #1d281d;
+  --edge: #2a3a2a; --edge-hi: #3c503a; --wood-1: #4a3a1c; --wood-2: #3a2c14; --wood-3: #221a0a;
+  --parch: #dfe0b0; --parch-dark: #b9b77a; --parch-hi: #f0f2d0;
+  --sky1: #06140c; --sky2: #12301e; --sky3: #2f4a2a; --sky4: #6a7a3a; --hill1: #13251a; --hill2: #0c180f;
+}
+:root[data-theme="dragon"] {
+  --wall-1: #4a2a22; --wall-2: #351c16; --wall-3: #24110d; --side-1: #1a0d0a; --side-2: #22120e; --ban-1: #3a1f18; --ban-2: #2a1510;
+  --edge: #3d1d16; --edge-hi: #5a2a1e; --wood-1: #3a1a10; --wood-2: #2a120a; --wood-3: #160805;
+  --parch: #e8cfa8; --parch-dark: #c49a64; --parch-hi: #f6e2c2;
+  --sky1: #1a0505; --sky2: #4a0f0a; --sky3: #a3341a; --sky4: #ff8a3a; --hill1: #2a0f0a; --hill2: #170806;
+}
+:root[data-theme="ice"] {
+  --wall-1: #4a5d74; --wall-2: #364659; --wall-3: #263343; --side-1: #172230; --side-2: #1d2b3c; --ban-1: #2c3d52; --ban-2: #223142;
+  --edge: #2e4258; --edge-hi: #4a6582; --wood-1: #4a5866; --wood-2: #36424e; --wood-3: #222b34;
+  --parch: #e4eef6; --parch-dark: #b8cbdc; --parch-hi: #f6fbff; --ink: #1d2c3c; --ink-soft: #40566e;
+  --sky1: #0b1a2e; --sky2: #23476e; --sky3: #6a9cc8; --sky4: #cfe6f7; --hill1: #3a5674; --hill2: #dfeaf5;
+}
+:root[data-theme="purple"] {
+  --wall-1: #3d3050; --wall-2: #2c223c; --wall-3: #1f182b; --side-1: #150f1e; --side-2: #1c1428; --ban-1: #2e2240; --ban-2: #231a32;
+  --edge: #33264a; --edge-hi: #4a3866; --wood-1: #3e2a4a; --wood-2: #2e1f38; --wood-3: #1a1022;
+  --parch: #ece0f2; --parch-dark: #c9b0d9; --parch-hi: #f8f0fc;
+  --sky1: #0a0618; --sky2: #24124a; --sky3: #4a2a7a; --sky4: #8a5aa8; --hill1: #1e1438; --hill2: #130c24;
+}
+:root[data-theme="night"] {
+  --wall-1: #2a2a30; --wall-2: #1e1e23; --wall-3: #141418; --side-1: #0e0e11; --side-2: #131317; --ban-1: #1f1f25; --ban-2: #18181d;
+  --edge: #222228; --edge-hi: #33333c; --wood-1: #2a2622; --wood-2: #1e1b18; --wood-3: #100e0c;
+  --parch: #cfcbc2; --parch-dark: #a39e92; --parch-hi: #e2ded6;
+  --sky1: #020205; --sky2: #0b0d18; --sky3: #1b1f30; --sky4: #2e3346; --hill1: #101219; --hill2: #08090d;
+}
+/* небо и холмы из переменных темы */
+.sky1 { stop-color: var(--sky1, #0a1230); } .sky2 { stop-color: var(--sky2, #2a2a52); }
+.sky3 { stop-color: var(--sky3, #7a4a5a); } .sky4 { stop-color: var(--sky4, #c47a4a); }
+.roof1 { stop-color: var(--roof1, #1b2a55); } .roof2 { stop-color: var(--roof2, #2f4a8c); }
+.hill1 { fill: var(--hill1, #232542); } .hill2 { fill: var(--hill2, #171828); }
+.hill1, .hill2, .sky1, .sky2, .sky3, .sky4 { transition: fill .8s, stop-color .8s; }
+/* пейзажи тем */
+.sc { display: none; }
+:root[data-theme="forest"] .sc-pines, :root[data-theme="forest"] .sc-fireflies { display: block; }
+:root[data-theme="dragon"] .sc-volcano { display: block; }
+:root[data-theme="ice"] .sc-peaks { display: block; }
+:root[data-theme="purple"] .sc-aurora { display: block; }
+:root[data-theme="night"] .sc-bolt { display: block; }
+:root[data-theme="dragon"] .dragon { animation-duration: 14s; }
+:root[data-theme="night"] .moon-g, :root[data-theme="night"] .meteor { opacity: .4; }
+.sc-fireflies circle { animation: firefly 3s ease-in-out infinite alternate; }
+.sc-fireflies circle:nth-child(2n) { animation-delay: 1.2s; } .sc-fireflies circle:nth-child(3n) { animation-delay: 2.1s; }
+@keyframes firefly { 0% { opacity: .1; transform: translate(0,0); } 100% { opacity: 1; transform: translate(10px,-12px); } }
+.lava { animation: lava 1.2s ease-in-out infinite alternate; }
+.lava-glow { animation: flicker 1.6s infinite alternate; }
+.smoke circle { animation: smoke 6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.smoke circle:nth-child(2) { animation-delay: 2s; } .smoke circle:nth-child(3) { animation-delay: 4s; }
+@keyframes lava { from { fill: #ff6a1a; } to { fill: #ffc04a; } }
+@keyframes smoke { from { transform: translate(0,0) scale(.6); opacity: .7; } to { transform: translate(30px,-70px) scale(2); opacity: 0; } }
+.aur { animation: aurora 8s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+.a2 { animation-duration: 11s; animation-delay: -3s; }
+@keyframes aurora { from { transform: translateX(-40px) scaleY(.9); opacity: .1; } to { transform: translateX(40px) scaleY(1.15); opacity: .28; } }
+.sc-bolt { opacity: 0; animation: bolt 9s linear infinite; }
+:root[data-theme="night"] .hero { animation: flash 9s linear infinite; }
+@keyframes bolt { 0%, 88%, 92%, 100% { opacity: 0; } 89%, 91% { opacity: 1; } }
+@keyframes flash { 0%, 88%, 92%, 100% { filter: none; } 89%, 91% { filter: brightness(1.8); } }
+/* погода поверх окна */
+#weather { position: fixed; inset: 0; z-index: 40; pointer-events: none; opacity: .75; }
+
 body.theme-switch * { transition: background-color .5s, border-color .5s, color .5s, fill .5s !important; }
 
 .parchment.wide { grid-column: 1 / -1; }
