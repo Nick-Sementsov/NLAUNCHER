@@ -14,6 +14,8 @@ const auth = require('./core/auth');
 const versions = require('./core/versions');
 const panel = require('./core/panel');
 const launcher = require('./core/launch');
+const instances = require('./core/instances');
+const modrinth = require('./core/modrinth');
 const { ping } = require('./core/ping');
 
 let win;
@@ -47,6 +49,7 @@ function createWindow() {
     const early = page === 'intro';
     win.webContents.once('did-finish-load', () => setTimeout(async () => {
       if (page && !early) await win.webContents.executeJavaScript(`document.querySelector('[data-page="${page}"]').click()`);
+      if (process.env.KM_SCREENSHOT_JS) await win.webContents.executeJavaScript(process.env.KM_SCREENSHOT_JS);
       setTimeout(async () => {
         require('fs').writeFileSync(file, (await win.webContents.capturePage()).toPNG());
         app.exit(0);
@@ -140,7 +143,9 @@ handle('folder:open', async which => {
   };
   let dir = map[which];
   if (!dir && typeof which === 'string' && which.startsWith('instance:')) {
-    dir = path.join(paths.instances, which.slice(9).replace(/[^a-zA-Z0-9._-]/g, '_'));
+    const sub = which.slice(9).split('/');
+    dir = path.join(paths.instances, sub[0].replace(/[^a-zA-Z0-9._-]/g, '_'));
+    if (sub[1] && instances.KINDS[sub[1]]) dir = path.join(dir, instances.KINDS[sub[1]]);
     require('fs').mkdirSync(dir, { recursive: true });
   }
   if (!dir) throw new Error('Неизвестная папка');
@@ -164,6 +169,40 @@ handle('game:launch', async target => {
 });
 
 handle('game:stop', () => launcher.stop());
+
+// ── Сборки (как в Prism) ─────────────────────────────────────────
+handle('instances:list', () => instances.list());
+handle('instances:get', id => instances.get(id));
+handle('instances:create', opts => instances.create(opts || {}));
+handle('instances:update', (id, patch) => instances.update(id, patch || {}));
+handle('instances:remove', id => instances.remove(id));
+handle('instances:duplicate', id => instances.duplicate(id));
+handle('instances:content', (id, kind) => instances.content(id, kind));
+handle('instances:toggle', (id, kind, file) => instances.toggle(id, kind, file));
+handle('instances:removeFile', (id, kind, file) => instances.removeFile(id, kind, file));
+handle('instances:addFiles', async (id, kind) => {
+  const filters = {
+    mods: [{ name: 'Моды', extensions: ['jar'] }],
+    resourcepacks: [{ name: 'Ресурспаки', extensions: ['zip'] }],
+    shaders: [{ name: 'Шейдеры', extensions: ['zip'] }],
+  };
+  if (!filters[kind]) throw new Error('Сюда нельзя добавить файлы');
+  const r = await dialog.showOpenDialog(win, { title: 'Добавить файлы', properties: ['openFile', 'multiSelections'], filters: filters[kind] });
+  if (r.canceled || !r.filePaths.length) return 0;
+  instances.addFiles(id, kind, r.filePaths);
+  return r.filePaths.length;
+});
+handle('instances:install', (id, projectId, type) =>
+  instances.installProject(id, projectId, type, p => send('content:progress', p)));
+handle('modpack:install', ref =>
+  instances.installMrpack(ref || {}, p => send('content:progress', p)));
+handle('modpack:import', async () => {
+  const r = await dialog.showOpenDialog(win, { title: 'Импорт сборки', properties: ['openFile'], filters: [{ name: 'Сборка Modrinth', extensions: ['mrpack'] }] });
+  if (r.canceled || !r.filePaths.length) return null;
+  return instances.installMrpack({ file: r.filePaths[0] }, p => send('content:progress', p));
+});
+handle('modrinth:search', opts => modrinth.search(opts || {}));
+handle('loaders:list', (kind, mc) => versions.loaderVersions(kind, mc));
 
 process.on('uncaughtException', e => {
   console.error(e);

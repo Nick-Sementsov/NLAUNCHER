@@ -60,21 +60,56 @@ async function fabricGameVersions() {
   return new Set(list.map(v => v.version));
 }
 
-// Ставит профиль Fabric в versions/ и возвращает его имя для MCLC (version.custom)
-async function installFabric(mcVersion) {
-  const loaders = await getJson(`${FABRIC}/versions/loader/${encodeURIComponent(mcVersion)}`);
-  const stable = loaders.find(l => l.loader.stable) || loaders[0];
-  if (!stable) throw new Error(`Fabric пока не поддерживает ${mcVersion}`);
-  const loader = stable.loader.version;
-  const id = `fabric-loader-${loader}-${mcVersion}`;
+const QUILT = 'https://meta.quiltmc.org/v3';
+const FORGE_META = 'https://files.minecraftforge.net/net/minecraftforge/forge/maven-metadata.json';
+
+// Профиль Fabric/Quilt кладём в versions/ и возвращаем его имя для MCLC (version.custom)
+async function installLoaderProfile(kind, mcVersion, loaderVersion) {
+  const base = kind === 'quilt' ? QUILT : FABRIC;
+  const name = kind === 'quilt' ? 'Quilt' : 'Fabric';
+  let loader = loaderVersion;
+  if (!loader) {
+    const loaders = await getJson(`${base}/versions/loader/${encodeURIComponent(mcVersion)}`);
+    const pick = kind === 'quilt'
+      ? loaders.find(l => !/beta|pre/i.test(l.loader.version)) || loaders[0]
+      : loaders.find(l => l.loader.stable) || loaders[0];
+    if (!pick) throw new Error(`${name} пока не поддерживает ${mcVersion}`);
+    loader = pick.loader.version;
+  }
+  const id = `${kind}-loader-${loader}-${mcVersion}`;
   const dir = path.join(paths.game, 'versions', id);
   const file = path.join(dir, `${id}.json`);
   if (!fs.existsSync(file)) {
-    const profile = await getJson(`${FABRIC}/versions/loader/${encodeURIComponent(mcVersion)}/${encodeURIComponent(loader)}/profile/json`);
+    const profile = await getJson(`${base}/versions/loader/${encodeURIComponent(mcVersion)}/${encodeURIComponent(loader)}/profile/json`);
+    profile.id = id;
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(file, JSON.stringify(profile, null, 2));
   }
   return id;
 }
 
-module.exports = { list, requiredJava, versionType, fabricGameVersions, installFabric };
+function installFabric(mcVersion, loaderVersion) {
+  return installLoaderProfile('fabric', mcVersion, loaderVersion);
+}
+
+function installQuilt(mcVersion, loaderVersion) {
+  return installLoaderProfile('quilt', mcVersion, loaderVersion);
+}
+
+// Версии загрузчика для выбранной версии игры (для окна создания сборки)
+async function loaderVersions(kind, mcVersion) {
+  if (kind === 'fabric' || kind === 'quilt') {
+    const base = kind === 'quilt' ? QUILT : FABRIC;
+    const list = await getJson(`${base}/versions/loader/${encodeURIComponent(mcVersion)}`);
+    return list.map(l => ({ id: l.loader.version, stable: kind === 'quilt' ? !/beta|pre/i.test(l.loader.version) : !!l.loader.stable }));
+  }
+  if (kind === 'forge') {
+    const meta = await getJson(FORGE_META);
+    const num = v => v.split(/[.-]/).map(n => parseInt(n, 10) || 0);
+    const desc = (a, b) => { const x = num(a), y = num(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (y[i] || 0) - (x[i] || 0); } return 0; };
+    return (meta[mcVersion] || []).map(v => v.slice(mcVersion.length + 1)).sort(desc).map(id => ({ id, stable: true }));
+  }
+  return [];
+}
+
+module.exports = { list, requiredJava, versionType, fabricGameVersions, installFabric, installQuilt, loaderVersions };

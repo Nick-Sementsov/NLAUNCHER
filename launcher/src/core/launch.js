@@ -11,6 +11,7 @@ const auth = require('./auth');
 const java = require('./java');
 const versions = require('./versions');
 const panel = require('./panel');
+const instances = require('./instances');
 
 const isWin = process.platform === 'win32';
 
@@ -103,6 +104,7 @@ async function launch(target, { onProgress, onLog, onExit }) {
   let forge;
   let gameDir;
   let joinServer = target.joinServer || null;
+  let memoryMb = s.memoryMb;
 
   if (target.kind === 'vanilla') {
     gameDir = path.join(paths.instances, 'default');
@@ -125,6 +127,30 @@ async function launch(target, { onProgress, onLog, onExit }) {
     await panel.syncMods(build, gameDir, onProgress);
     if (target.joinServer !== false && cfg.settings?.serverIp) joinServer = cfg.settings.serverIp;
     if (authorization.name) panel.registerPlayer(authorization.name).catch(() => {});
+  } else if (target.kind === 'instance') {
+    const inst = instances.get(target.id);
+    mcVersion = inst.mc;
+    gameDir = instances.dir(inst.id);
+    if (inst.memoryMb) memoryMb = inst.memoryMb;
+    let loaderVersion = inst.loaderVersion;
+    if (inst.loader !== 'vanilla' && !loaderVersion) {
+      onProgress({ stage: 'Ищем версию загрузчика…', percent: 0 });
+      const list = await versions.loaderVersions(inst.loader, mcVersion);
+      const pick = list.find(l => l.stable) || list[0];
+      if (!pick) throw new Error(`Для ${mcVersion} нет загрузчика ${inst.loader}`);
+      loaderVersion = pick.id;
+      instances.update(inst.id, { loaderVersion });
+    }
+    if (inst.loader === 'fabric') {
+      onProgress({ stage: 'Ставим Fabric…', percent: 0 });
+      custom = await versions.installFabric(mcVersion, loaderVersion);
+    } else if (inst.loader === 'quilt') {
+      onProgress({ stage: 'Ставим Quilt…', percent: 0 });
+      custom = await versions.installQuilt(mcVersion, loaderVersion);
+    } else if (inst.loader === 'forge') {
+      forge = await panel.ensureForgeInstaller(mcVersion, loaderVersion, onProgress);
+    }
+    instances.update(inst.id, { lastPlayed: new Date().toISOString() });
   } else {
     throw new Error('Неизвестный тип версии');
   }
@@ -132,7 +158,7 @@ async function launch(target, { onProgress, onLog, onExit }) {
   const required = await versions.requiredJava(mcVersion);
   const javaPath = await java.ensureJava(required, onProgress);
 
-  const maxMb = Math.max(1024, s.memoryMb | 0);
+  const maxMb = Math.max(1024, memoryMb | 0);
   const options = {
     root: paths.game,
     cache: path.join(paths.cache, 'mclc'),

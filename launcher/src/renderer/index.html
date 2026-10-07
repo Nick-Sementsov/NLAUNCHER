@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://mc-heads.net https://crafatar.com; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://mc-heads.net https://crafatar.com https://cdn.modrinth.com; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
 <title>KM Launcher</title>
 <link rel="stylesheet" href="style.css">
 <script src="boot.js"></script>
@@ -58,6 +58,8 @@
       <svg class="b-ico" viewBox="0 0 24 24"><path d="M3 21V10l2-2 2 2v3h2V6l3-4 3 4v7h2v-3l2-2 2 2v11h-7v-4a2 2 0 0 0-4 0v4z"/></svg><span>Главная</span></button>
     <button class="banner" data-page="versions">
       <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 3l9 9-2 2-9-9V3zm16 0v2l-6 6-2-2 6-6zM6 15l3 3-2 2-1-1-2 2-1-1 2-2-1-1zm12 0l2 2-1 1 2 2-1 1-2-2-1 1-2-2z"/></svg><span>Версии</span></button>
+    <button class="banner" data-page="instances">
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 7l8-4 8 4v10l-8 4-8-4zm8-1.8L7.2 7.6 12 10l4.8-2.4zM6 9.3v6.5l5 2.5v-6.5zm12 0l-5 2.5v6.5l5-2.5z"/></svg><span>Сборки</span></button>
     <button class="banner" data-page="accounts">
       <svg class="b-ico" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/></svg><span>Аккаунты</span></button>
     <button class="banner" data-page="settings">
@@ -280,6 +282,73 @@
       <div class="version-grid" id="versionGrid"></div>
     </section>
 
+    <!-- СБОРКИ -->
+    <section class="page" id="page-instances">
+      <div class="page-head">
+        <h2 class="ribbon">Сборки</h2>
+        <div class="head-actions">
+          <button class="btn btn-gold" id="btnNewInstance">＋ Создать сборку</button>
+          <button class="btn btn-iron" id="btnBrowsePacks">Скачать сборку</button>
+          <button class="btn btn-iron" id="btnImportPack" title="Файл .mrpack с Modrinth">Импорт файла</button>
+        </div>
+      </div>
+      <p class="page-lead">Своя папка, своя версия и свои моды у каждой сборки. Как в Prism: создай сборку, добавь моды с Modrinth и играй.</p>
+      <div class="instance-grid" id="instanceGrid"></div>
+    </section>
+
+    <!-- ОДНА СБОРКА -->
+    <section class="page" id="page-instance">
+      <div class="inst-head">
+        <button class="btn btn-iron back" id="instBack">← Сборки</button>
+        <img class="inst-icon big" id="instIcon" alt="">
+        <div class="inst-title">
+          <h2 id="instName"></h2>
+          <small id="instSub"></small>
+        </div>
+        <button class="btn btn-gold btn-play-small" id="instPlay">▶ Играть</button>
+      </div>
+      <div class="tabs inst-tabs" id="instTabs">
+        <button class="tab active" data-tab="mods">Моды</button>
+        <button class="tab" data-tab="resourcepacks">Ресурспаки</button>
+        <button class="tab" data-tab="shaders">Шейдеры</button>
+        <button class="tab" data-tab="saves">Миры</button>
+        <button class="tab" data-tab="settings">Настройки</button>
+      </div>
+      <div id="instContentPane">
+        <div class="toolbar">
+          <input class="field" id="contentSearch" placeholder="Поиск…">
+          <button class="btn btn-gold" id="btnAddModrinth">＋ Добавить с Modrinth</button>
+          <button class="btn btn-iron" id="btnAddFile">Добавить файл</button>
+          <button class="btn btn-iron" id="btnOpenKind">Папка</button>
+        </div>
+        <div class="content-list" id="contentList"></div>
+      </div>
+      <div id="instSettingsPane" class="hidden">
+        <div class="settings-grid">
+          <div class="parchment">
+            <h3>Сборка</h3>
+            <label class="lbl">Название</label>
+            <input class="field" id="instEditName" maxlength="40">
+            <label class="lbl">Память для этой сборки</label>
+            <select class="field" id="instEditMem"></select>
+            <p class="hint" id="instLoaderInfo"></p>
+            <div class="row-btns">
+              <button class="btn btn-gold" id="instSave">Сохранить</button>
+              <button class="btn btn-iron" data-inst-folder>Открыть папку</button>
+            </div>
+          </div>
+          <div class="parchment">
+            <h3>Действия</h3>
+            <p class="hint">Копия сохранит все моды, миры и настройки.</p>
+            <div class="row-btns">
+              <button class="btn btn-iron" id="instDuplicate">Сделать копию</button>
+              <button class="btn btn-red" id="instDelete">Удалить сборку</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- РЫЦАРИ -->
     <section class="page" id="page-accounts">
       <div class="page-head"><h2 class="ribbon">Аккаунты</h2></div>
@@ -427,6 +496,29 @@
     <div class="modal-actions" id="modalActions"></div>
   </div>
 </div>
+<!-- Каталог Modrinth -->
+<div class="modal hidden" id="browser">
+  <div class="parchment browser-box">
+    <div class="browser-head">
+      <h3 id="browserTitle">Каталог</h3>
+      <button class="tb-btn tb-close" id="browserClose" title="Закрыть">&#x2715;</button>
+    </div>
+    <div class="browser-bar">
+      <input class="field" id="browserSearch" placeholder="Найти…" autocomplete="off" spellcheck="false">
+      <select class="field" id="browserSort">
+        <option value="relevance">Подходящие</option>
+        <option value="downloads">Популярные</option>
+        <option value="follows">Любимые</option>
+        <option value="newest">Новые</option>
+        <option value="updated">Обновлённые</option>
+      </select>
+    </div>
+    <p class="hint" id="browserFor"></p>
+    <div class="browser-list" id="browserList"></div>
+    <button class="btn btn-iron hidden" id="browserMore">Показать ещё</button>
+  </div>
+</div>
+<div class="task hidden" id="task"><span id="taskStage"></span><div class="task-bar"><div id="taskFill"></div></div></div>
 <div class="toasts" id="toasts"></div>
 <canvas id="weather" aria-hidden="true"></canvas>
 
