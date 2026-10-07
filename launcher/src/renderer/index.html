@@ -77,7 +77,7 @@
         <svg class="hero-scene" viewBox="0 0 1200 340" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
           <defs>
             <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#0a1230"/><stop offset=".55" stop-color="#2a2a52"/><stop offset=".85" stop-color="#7a4a5a"/><stop offset="1" stop-color="#c47a4a"/>
+              <stop class="sky1" offset="0" stop-color="#0a1230"/><stop class="sky2" offset=".55" stop-color="#2a2a52"/><stop class="sky3" offset=".85" stop-color="#7a4a5a"/><stop class="sky4" offset="1" stop-color="#c47a4a"/>
             </linearGradient>
             <radialGradient id="moonGlow"><stop offset="0" stop-color="#fff4cf" stop-opacity=".5"/><stop offset="1" stop-color="#fff4cf" stop-opacity="0"/></radialGradient>
             <radialGradient id="torch"><stop offset="0" stop-color="#ffd27a"/><stop offset=".4" stop-color="#ff9a3a" stop-opacity=".7"/><stop offset="1" stop-color="#ff6a1a" stop-opacity="0"/></radialGradient>
@@ -85,7 +85,7 @@
               <stop offset="0" stop-color="#2b2f3d"/><stop offset=".6" stop-color="#3b4152"/><stop offset="1" stop-color="#262a36"/>
             </linearGradient>
             <linearGradient id="roof" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#1b2a55"/><stop offset=".45" stop-color="#2f4a8c"/><stop offset="1" stop-color="#16224a"/>
+              <stop class="roof1" offset="0" stop-color="#1b2a55"/><stop class="roof2" offset=".45" stop-color="#2f4a8c"/><stop class="roof1" offset="1" stop-color="#16224a"/>
             </linearGradient>
             <pattern id="bricks" width="24" height="12" patternUnits="userSpaceOnUse">
               <path d="M0 12h24M0 6h24M12 0v6M0 6v6M24 6v6" stroke="#000" stroke-opacity=".18" stroke-width="1" fill="none"/>
@@ -115,14 +115,40 @@
             <ellipse cx="760" cy="60" rx="140" ry="12"/><ellipse cx="820" cy="52" rx="60" ry="10"/>
           </g>
           <!-- дальние холмы и собор -->
-          <path d="M0 250 L140 200 L260 235 L400 180 L540 240 L700 195 L860 240 L1000 190 L1200 245 V340 H0Z" fill="#232542"/>
+          <!-- северное сияние (пурпур) -->
+          <g class="sc sc-aurora">
+            <path class="aur a1" d="M0 120 C200 40 380 150 600 70 S1000 120 1200 50 V150 C1000 210 800 120 600 170 S200 120 0 200Z" fill="#7dffc8" opacity=".14"/>
+            <path class="aur a2" d="M0 90 C240 150 420 30 640 100 S1020 40 1200 110 V170 C1000 130 820 200 620 150 S220 190 0 160Z" fill="#c38bff" opacity=".16"/>
+          </g>
+          <!-- вулкан (пламя дракона) -->
+          <g class="sc sc-volcano">
+            <path d="M780 250 L900 120 L930 128 L960 118 L1090 250Z" fill="#1d0f0c"/>
+            <path class="lava" d="M905 124 L930 130 L955 120 L948 160 L935 140 L925 175 L915 150Z" fill="#ff6a1a"/>
+            <circle class="lava-glow" cx="930" cy="122" r="60" fill="url(#torch)"/>
+            <g class="smoke" fill="#3a2a26" opacity=".6"><circle cx="930" cy="100" r="14"/><circle cx="944" cy="84" r="18"/><circle cx="926" cy="66" r="22"/></g>
+          </g>
+          <!-- снежные пики (лёд) -->
+          <g class="sc sc-peaks">
+            <path d="M0 230 L120 120 L200 190 L330 90 L460 210 L560 130 L700 230Z" fill="#2c4664"/>
+            <path d="M120 120 L95 143 L112 140 L124 150 L140 137Z M330 90 L300 120 L320 116 L334 128 L352 112Z M560 130 L540 150 L556 148 L566 156 L578 146Z" fill="#e8f2ff"/>
+          </g>
+          <path class="hill1" d="M0 250 L140 200 L260 235 L400 180 L540 240 L700 195 L860 240 L1000 190 L1200 245 V340 H0Z" fill="#232542"/>
           <g fill="#1c1e36">
             <rect x="120" y="190" width="60" height="70"/>
             <path d="M118 192 L134 130 L150 192Z"/><path d="M150 192 L166 140 L182 192Z"/>
             <rect x="140" y="150" width="20" height="45"/><path d="M137 152 L150 96 L163 152Z"/>
             <circle cx="150" cy="210" r="9" fill="#e9a44a" opacity=".55"/>
           </g>
-          <path d="M0 285 L180 255 L360 280 L560 250 L760 285 L960 255 L1200 285 V340 H0Z" fill="#171828"/>
+          <path class="hill2" d="M0 285 L180 255 L360 280 L560 250 L760 285 L960 255 L1200 285 V340 H0Z" fill="#171828"/>
+          <!-- ели (лес) -->
+          <g class="sc sc-pines" fill="#1a3a22">
+            <path d="M30 290 l30-100 30 100z M85 295 l24-80 24 80z M140 290 l34-120 34 120z M290 295 l26-86 26 86z M345 290 l30-106 30 106z M990 292 l30-98 30 98z M1050 295 l24-78 24 78z M1105 290 l34-116 34 116z"/>
+          </g>
+          <g class="sc sc-fireflies" fill="#d8ff6a">
+            <circle cx="220" cy="270" r="2"/><circle cx="420" cy="250" r="1.6"/><circle cx="980" cy="260" r="2"/><circle cx="1150" cy="240" r="1.6"/><circle cx="600" cy="300" r="1.8"/>
+          </g>
+          <!-- молнии (ночь) -->
+          <path class="sc sc-bolt" d="M300 20 L280 90 L300 88 L270 170 L320 80 L298 82 L318 20Z" fill="#e8eeff"/>
           <!-- Замок -->
           <g transform="translate(560 64)">
             <!-- донжон со шпилем -->
@@ -320,8 +346,6 @@
           <h3>Дополнительно</h3>
           <label class="lbl">Аргументы Java</label>
           <input class="field" id="jvmArgs" placeholder="-XX:+UseG1GC">
-          <label class="lbl">Адрес панели сервера</label>
-          <input class="field" id="panelUrl" placeholder="https://…">
         </div>
         <div class="parchment">
           <h3>Папки</h3>
@@ -404,6 +428,7 @@
   </div>
 </div>
 <div class="toasts" id="toasts"></div>
+<canvas id="weather" aria-hidden="true"></canvas>
 
 <script src="app.js"></script>
 </body>
