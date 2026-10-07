@@ -203,9 +203,15 @@ async function launch(target, { onProgress, onLog, onExit }) {
       onProgress({ stage: 'Загрузка: файл игры', percent: d.total ? Math.round(d.current / d.total * 100) : 0 });
     }
   });
-  client.on('debug', line => { logFile.write(line + '\n'); onLog(line + '\n'); });
+  // токен входа не должен попадать в консоль и файлы логов: им можно войти в аккаунт
+  const hide = line => String(line)
+    .replace(/(--accessToken[ =])\S+/g, '$1***')
+    .replace(/(--(?:clientId|xuid)[ =])\S+/g, '$1***')
+    .replace(/eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}/g, '***');
+  client.on('debug', line => { line = hide(line); logFile.write(line + '\n'); onLog(line + '\n'); });
   client.on('arguments', () => onProgress({ stage: 'Запускаем игру…', percent: 100 }));
   client.on('data', line => {
+    line = hide(line);
     if (!started) { started = true; onProgress({ stage: 'Игра запущена', percent: 100, started: true }); }
     logFile.write(line);
     onLog(line);
