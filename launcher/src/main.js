@@ -163,6 +163,8 @@ handle('game:launch', async target => {
   });
 });
 
+handle('game:stop', () => launcher.stop());
+
 process.on('uncaughtException', e => {
   console.error(e);
   if (win && !win.isDestroyed()) {

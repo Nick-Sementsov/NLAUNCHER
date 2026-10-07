@@ -16,6 +16,8 @@ const isWin = process.platform === 'win32';
 
 // MCLC запускает java.exe как консольную программу: на Windows выскакивает чёрное окно,
 // а при нестандартном выводе `java -version` он падает. Чиним оба места.
+// Игру запускаем через javaw.exe (без консоли) и НЕ передаём windowsHide: этот флаг
+// прячет и само окно игры на версиях с LWJGL 2 (1.12.2 и старше) — процесс жив, окна нет.
 Handler.prototype.checkJava = function (javaPath) {
   return new Promise(resolve => {
     child.execFile(javaPath, ['-version'], { windowsHide: true }, (error, _stdout, stderr) => {
@@ -36,7 +38,7 @@ Client.prototype.startMinecraft = function (launchArguments) {
   const mc = child.spawn(exe, launchArguments, {
     cwd: this.options.overrides.cwd || this.options.root,
     detached: this.options.overrides.detached,
-    windowsHide: true,
+    windowsHide: false,
   });
   mc.stdout.on('data', d => this.emit('data', d.toString('utf-8')));
   mc.stderr.on('data', d => this.emit('data', d.toString('utf-8')));
@@ -192,10 +194,20 @@ async function launch(target, { onProgress, onLog, onExit }) {
   });
 
   const proc = await client.launch(options);
+  if (proc && running === client) client.proc = proc;
   if (!proc && running) {
     running = null;
     throw new Error('Не удалось запустить игру. Подробности в консоли');
   }
 }
 
-module.exports = { launch, isRunning };
+// Принудительно закрыть игру (например, если она зависла)
+function stop() {
+  const proc = running && running.proc;
+  if (!proc || proc.exitCode !== null) return false;
+  if (isWin) child.execFile('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { windowsHide: true }, () => {});
+  else proc.kill('SIGKILL');
+  return true;
+}
+
+module.exports = { launch, isRunning, stop };
