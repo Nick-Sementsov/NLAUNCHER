@@ -14,7 +14,16 @@ const CLASS = { mod: 6, resourcepack: 12, shader: 6552, modpack: 4471 };
 const LOADER = { forge: 1, fabric: 4, quilt: 5, neoforge: 6 };
 const SORT = { relevance: 1, downloads: 6, follows: 2, newest: 11, updated: 3 };
 
-const get = path => getJson(`${API}${path}`, { timeout: 20000, headers });
+// Зеркало режет частые запросы (403/429): повторяем с паузой
+async function get(path) {
+  for (let i = 0; ; i++) {
+    try { return await getJson(`${API}${path}`, { timeout: 20000, headers }); }
+    catch (e) {
+      if (i >= 3 || !/HTTP (403|429|5\d\d)/.test(e.message)) throw e;
+      await new Promise(r => setTimeout(r, 1500 * 2 ** i));
+    }
+  }
+}
 
 function q(obj) {
   return Object.entries(obj).filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -57,14 +66,16 @@ async function pool(items, n, fn) {
   return out;
 }
 
-const projects = ids => pool([...new Set(ids.map(String))], 8, id => project(id).catch(() => null)).then(l => l.filter(Boolean));
+const projects = ids => pool([...new Set(ids.map(String))], 4, id => project(id).catch(() => null)).then(l => l.filter(Boolean));
 
 async function file(modId, fileId) {
   return (await get(`/mods/${encodeURIComponent(modId)}/files/${encodeURIComponent(fileId)}`)).data;
 }
 
 // Файлы по списку {projectID, fileID} из manifest.json
-const filesByRef = refs => pool(refs, 8, r => file(r.projectID, r.fileID));
+// Файл, который не удалось получить, возвращаем как { missing: true }: его докачают вручную
+const filesByRef = refs => pool(refs, 4, r => file(r.projectID, r.fileID)
+  .catch(() => ({ missing: true, modId: r.projectID, id: r.fileID, fileName: `файл ${r.fileID}` })));
 
 const LOADER_NAME = { forge: 'Forge', fabric: 'Fabric', quilt: 'Quilt' };
 
