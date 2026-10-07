@@ -62,6 +62,7 @@ async function build() {
     const inst = await instances.installCfPack({ projectId: hit.id }, onProgress);
     const mods = instances.content(inst.id, 'mods');
     console.log(`Сборка «${inst.name}» (${inst.mc} ${inst.loader} ${inst.loaderVersion}), модов: ${mods.length}, вручную: ${inst.blocked.length}`);
+    for (const b of inst.blocked) console.log(`  вручную: ${b.title} (${b.fileName})`);
     if (!mods.length) throw new Error('в сборке не оказалось модов');
     return inst;
   }
