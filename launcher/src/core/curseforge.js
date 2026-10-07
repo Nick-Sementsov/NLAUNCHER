@@ -6,7 +6,7 @@ const { getJson, postJson } = require('./net');
 
 let KEY = process.env.KM_CF_API_KEY || '';
 try { KEY = KEY || require('./cf-key.json').key || ''; } catch { /* ключа нет */ }
-const API = KEY ? 'https://api.curseforge.com' : 'https://api.curse.tools/v1/cf';
+const API = KEY ? 'https://api.curseforge.com/v1' : 'https://api.curse.tools/v1/cf';
 const headers = KEY ? { 'x-api-key': KEY } : {};
 
 const GAME = 432; // Minecraft
@@ -29,7 +29,7 @@ async function search({ query = '', type = 'mod', mc, loader, offset = 0, limit 
   };
   // Quilt запускает моды Fabric: для Quilt-сборки ищем моды Fabric
   if (type === 'mod' && LOADER[loader]) params.modLoaderType = loader === 'quilt' ? LOADER.fabric : LOADER[loader];
-  const res = await get(`/v1/mods/search?${q(params)}`);
+  const res = await get(`/mods/search?${q(params)}`);
   return {
     total: Math.min(res.pagination?.totalCount || 0, 10000 - limit), // API не даёт листать дальше 10000
     hits: (res.data || []).map(m => ({
@@ -40,18 +40,18 @@ async function search({ query = '', type = 'mod', mc, loader, offset = 0, limit 
   };
 }
 
-async function project(id) { return (await get(`/v1/mods/${encodeURIComponent(id)}`)).data; }
+async function project(id) { return (await get(`/mods/${encodeURIComponent(id)}`)).data; }
 
 async function projects(ids) {
   if (!ids.length) return [];
-  return (await post('/v1/mods', { modIds: ids.map(Number) })).data || [];
+  return (await post('/mods', { modIds: ids.map(Number) })).data || [];
 }
 
 // Подходящие файлы проекта, новые первыми
 async function files(id, { mc, loader, type } = {}) {
   const params = { gameVersion: mc, pageSize: 50 };
   if (type === 'mod' && LOADER[loader]) params.modLoaderType = loader === 'quilt' ? LOADER.fabric : LOADER[loader];
-  const res = await get(`/v1/mods/${encodeURIComponent(id)}/files?${q(params)}`);
+  const res = await get(`/mods/${encodeURIComponent(id)}/files?${q(params)}`);
   let list = (res.data || []).filter(f => f.isAvailable !== false);
   // releaseType: 1 релиз, 2 бета, 3 альфа — сначала стабильные
   list.sort((a, b) => (a.releaseType - b.releaseType) || (new Date(b.fileDate) - new Date(a.fileDate)));
@@ -60,7 +60,7 @@ async function files(id, { mc, loader, type } = {}) {
 
 async function filesById(ids) {
   if (!ids.length) return [];
-  return (await post('/v1/mods/files', { fileIds: ids.map(Number) })).data || [];
+  return (await post('/mods/files', { fileIds: ids.map(Number) })).data || [];
 }
 
 function sha1Of(f) { return (f.hashes || []).find(h => h.algo === 1)?.value || ''; }
