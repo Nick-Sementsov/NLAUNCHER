@@ -11,7 +11,9 @@ const auth = require('../src/core/auth');
 const launcher = require('../src/core/launch');
 const instances = require('../src/core/instances');
 
-const [mode = 'mods', wanted = '1.20.1'] = process.argv.slice(2);
+// режим можно передать и как имя задачи CI: instance-mods → mods
+const [rawMode = 'mods', wanted = '1.20.1'] = process.argv.slice(2);
+const mode = rawMode.replace(/^instance-/, '');
 const acc = auth.addOffline('KMSmoke');
 store.update({ selectedAccount: acc.id, memoryMb: 2048 });
 
@@ -47,6 +49,35 @@ async function build() {
     const mods = instances.content(inst.id, 'mods');
     console.log(`Сборка «${inst.name}» (${inst.mc} ${inst.loader}), модов: ${mods.length}`);
     if (!mods.length) throw new Error('в сборке не оказалось модов');
+    return inst;
+  }
+  if (mode === 'cf-pack') {
+    // Сборка с CurseForge: ищем Fabulously Optimized и ставим её целиком
+    const cf = require('../src/core/curseforge');
+    console.log(`CurseForge через ${cf.usesMirror ? 'зеркало api.curse.tools' : 'официальный API'}`);
+    const res = await cf.search({ query: 'Fabulously Optimized', type: 'modpack', index: 'downloads', limit: 5 });
+    const hit = res.hits.find(h => h.slug === 'fabulously-optimized') || res.hits[0];
+    if (!hit) throw new Error('CurseForge ничего не нашёл');
+    console.log(`Нашли сборку ${hit.title} (${hit.id})`);
+    const inst = await instances.installCfPack({ projectId: hit.id }, onProgress);
+    const mods = instances.content(inst.id, 'mods');
+    console.log(`Сборка «${inst.name}» (${inst.mc} ${inst.loader} ${inst.loaderVersion}), модов: ${mods.length}, вручную: ${inst.blocked.length}`);
+    if (!mods.length) throw new Error('в сборке не оказалось модов');
+    return inst;
+  }
+  if (mode === 'cf-mods') {
+    // Моды с CurseForge в сборку Forge: JEI и его зависимости
+    const cf = require('../src/core/curseforge');
+    const inst = instances.create({ name: `Смоук CurseForge ${wanted}`, mc: wanted, loader: 'forge' });
+    for (const q of ['Just Enough Items', 'Mouse Tweaks']) {
+      const res = await cf.search({ query: q, type: 'mod', mc: wanted, loader: 'forge', index: 'downloads', limit: 5 });
+      const hit = res.hits[0];
+      if (!hit) throw new Error(`CurseForge не нашёл ${q}`);
+      const r = await instances.installProject(inst.id, hit.id, 'mod', onProgress, 'curseforge');
+      console.log(`+ ${r.title}`);
+    }
+    const mods = instances.content(inst.id, 'mods');
+    if (mods.length < 2) throw new Error(`модов установлено ${mods.length}, ожидалось 2`);
     return inst;
   }
   const loader = mode === 'forge' ? 'forge' : mode === 'quilt' ? 'quilt' : 'fabric';

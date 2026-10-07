@@ -43,13 +43,14 @@ contextBridge.exposeInMainWorld('km', {
     toggle: (id, kind, file) => call('instances:toggle', id, kind, file),
     removeFile: (id, kind, file) => call('instances:removeFile', id, kind, file),
     addFiles: (id, kind) => call('instances:addFiles', id, kind),
-    install: (id, projectId, type) => call('instances:install', id, projectId, type),
+    install: (id, projectId, type, source) => call('instances:install', id, projectId, type, source),
   },
   modpack: {
     install: ref => call('modpack:install', ref),
     import: () => call('modpack:import'),
   },
   modrinth: { search: opts => call('modrinth:search', opts) },
+  curseforge: { search: opts => call('curseforge:search', opts) },
   loaders: (kind, mc) => call('loaders:list', kind, mc),
   installUpdate: () => call('update:install'),
   on: {

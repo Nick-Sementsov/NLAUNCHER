@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://mc-heads.net https://crafatar.com https://cdn.modrinth.com; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://mc-heads.net https://crafatar.com https://cdn.modrinth.com https://media.forgecdn.net; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
 <title>KM Launcher</title>
 <link rel="stylesheet" href="style.css">
 <script src="boot.js"></script>
@@ -289,7 +289,7 @@
         <div class="head-actions">
           <button class="btn btn-gold" id="btnNewInstance">＋ Создать сборку</button>
           <button class="btn btn-iron" id="btnBrowsePacks">Скачать сборку</button>
-          <button class="btn btn-iron" id="btnImportPack" title="Файл .mrpack с Modrinth">Импорт файла</button>
+          <button class="btn btn-iron" id="btnImportPack" title="Файл .mrpack с Modrinth или .zip с CurseForge">Импорт файла</button>
         </div>
       </div>
       <p class="page-lead">Своя папка, своя версия и свои моды у каждой сборки. Как в Prism: создай сборку, добавь моды с Modrinth и играй.</p>
@@ -321,6 +321,7 @@
           <button class="btn btn-iron" id="btnAddFile">Добавить файл</button>
           <button class="btn btn-iron" id="btnOpenKind">Папка</button>
         </div>
+        <div class="blocked-box hidden" id="blockedBox"></div>
         <div class="content-list" id="contentList"></div>
       </div>
       <div id="instSettingsPane" class="hidden">
@@ -506,6 +507,10 @@
   <div class="parchment browser-box">
     <div class="browser-head">
       <h3 id="browserTitle">Каталог</h3>
+      <div class="tabs src-tabs" id="browserSource">
+        <button class="tab active" data-src="modrinth">Modrinth</button>
+        <button class="tab" data-src="curseforge">CurseForge</button>
+      </div>
       <button class="tb-btn tb-close" id="browserClose" title="Закрыть">&#x2715;</button>
     </div>
     <div class="browser-bar">

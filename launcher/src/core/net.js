@@ -51,4 +51,27 @@ async function download(url, dest, onProgress) {
   fs.renameSync(tmp, dest);
 }
 
-module.exports = { request, getJson, download, UA };
+// POST с JSON-телом (нужен CurseForge для пакетных запросов)
+function postJson(url, data, { timeout = 30000, headers = {} } = {}) {
+  const body = Buffer.from(JSON.stringify(data));
+  return new Promise((resolve, reject) => {
+    const mod = url.startsWith('https') ? https : http;
+    const req = mod.request(url, {
+      method: 'POST', timeout,
+      headers: { 'User-Agent': UA, 'Content-Type': 'application/json', 'Content-Length': body.length, ...headers },
+    }, async res => {
+      try {
+        const chunks = [];
+        for await (const c of res) chunks.push(c);
+        const text = Buffer.concat(chunks).toString('utf8');
+        if (res.statusCode >= 400) return reject(new Error(`HTTP ${res.statusCode}: ${url}`));
+        resolve(JSON.parse(text));
+      } catch (e) { reject(e); }
+    });
+    req.on('error', reject);
+    req.on('timeout', () => req.destroy(new Error('Превышено время ожидания: ' + url)));
+    req.end(body);
+  });
+}
+
+module.exports = { request, getJson, postJson, download, UA };
