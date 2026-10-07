@@ -92,12 +92,38 @@ function installQuilt(mcVersion, loaderVersion) {
   return installLoaderProfile('quilt', mcVersion, loaderVersion);
 }
 
+// Сравнение версий вида 0.29.2-beta.3: новые первыми, релиз выше беты той же версии
+function semverDesc(a, b) {
+  const parse = v => {
+    const [main, pre = ''] = v.split(/-(.*)/s);
+    return { main: main.split('.').map(n => parseInt(n, 10) || 0), pre: pre ? pre.split('.').map(p => (/^\d+$/.test(p) ? +p : p)) : null };
+  };
+  const x = parse(a), y = parse(b);
+  for (let i = 0; i < Math.max(x.main.length, y.main.length); i++) {
+    const d = (y.main[i] || 0) - (x.main[i] || 0);
+    if (d) return d;
+  }
+  if (!x.pre !== !y.pre) return x.pre ? 1 : -1;
+  if (!x.pre) return 0;
+  for (let i = 0; i < Math.max(x.pre.length, y.pre.length); i++) {
+    const p = x.pre[i], q = y.pre[i];
+    if (p === q) continue;
+    if (p === undefined) return 1;
+    if (q === undefined) return -1;
+    if (typeof p === 'number' && typeof q === 'number') return q - p;
+    return String(q).localeCompare(String(p));
+  }
+  return 0;
+}
+
 // Версии загрузчика для выбранной версии игры (для окна создания сборки)
 async function loaderVersions(kind, mcVersion) {
   if (kind === 'fabric' || kind === 'quilt') {
     const base = kind === 'quilt' ? QUILT : FABRIC;
     const list = await getJson(`${base}/versions/loader/${encodeURIComponent(mcVersion)}`);
-    return list.map(l => ({ id: l.loader.version, stable: kind === 'quilt' ? !/beta|pre/i.test(l.loader.version) : !!l.loader.stable }));
+    const out = list.map(l => ({ id: l.loader.version, stable: kind === 'quilt' ? !/beta|pre|rc/i.test(l.loader.version) : !!l.loader.stable }));
+    // Quilt отдаёт список не по порядку (0.20.0-beta.9 может стоять первым) — сортируем сами
+    return kind === 'quilt' ? out.sort((a, b) => semverDesc(a.id, b.id)) : out;
   }
   if (kind === 'forge') {
     const meta = await getJson(FORGE_META);
