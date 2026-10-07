@@ -5,6 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://mc-heads.net https://crafatar.com; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
 <title>KM Launcher</title>
 <link rel="stylesheet" href="style.css">
+<script src="boot.js"></script>
 </head>
 <body>
 
@@ -179,6 +180,13 @@
             <circle class="torch" cx="172" cy="214" r="22" fill="url(#torch)"/>
             <circle class="torch t2" cx="248" cy="214" r="22" fill="url(#torch)"/>
           </g>
+          <!-- дракон пролетает над королевством -->
+          <g class="dragon"><g class="dragon-body" fill="#090a12">
+            <path d="M0 18c14-4 30-4 46 0l14-6 10 2-8 4 6 4-12-1c-6 4-16 6-28 4-10-1-20-3-28-7z"/>
+            <path class="wing wl" d="M22 16c-2-14 4-26 16-34-2 10 2 18 10 22-6 2-12 6-14 12z"/>
+            <path class="wing wr" d="M30 18c6 10 18 16 30 16-8-4-12-10-12-16z" opacity=".85"/>
+            <path d="M0 18c-10-2-18 0-26 6 8-2 14-2 20 0z"/>
+          </g></g>
           <!-- летучие мыши над замком -->
           <g class="bats" fill="#0b0c14">
             <path class="bat b1" d="M0 0c4-5 8-5 10-1 2-4 6-4 10 1-4-1-7 0-10 3-3-3-6-4-10-3z"/>
@@ -253,12 +261,23 @@
         <div class="account-list" id="accountList"></div>
         <div class="parchment add-account">
           <h3>Добавить аккаунт</h3>
-          <button class="btn btn-ms" id="btnAddMs">
-            <svg viewBox="0 0 21 21" width="18" height="18" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
-            Войти через Microsoft
-          </button>
-          <p class="hint">Лицензия: нужен купленный Minecraft Java Edition.</p>
-          <div class="divider"><span>или</span></div>
+          <div class="lic-block">
+            <div class="lic-title">Лицензия</div>
+            <button class="btn btn-ms btn-big" data-ms-login>
+              <svg viewBox="0 0 21 21" width="22" height="22" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+              Войти через Microsoft
+            </button>
+            <ol class="lic-steps">
+              <li>Нажми кнопку: откроется окно Microsoft.</li>
+              <li>Введи почту и пароль от аккаунта, на котором куплен Minecraft.</li>
+              <li>Готово, лаунчер запомнит вход.</li>
+            </ol>
+            <div class="lic-links">
+              <a href="https://signup.live.com/" target="_blank">Нет аккаунта Microsoft? Создать</a>
+              <a href="https://www.minecraft.net/ru-ru/store/minecraft-java-bedrock-edition-pc" target="_blank">Нет игры? Купить Minecraft</a>
+            </div>
+          </div>
+          <div class="divider"><span>или без лицензии</span></div>
           <form id="offlineForm" class="offline-form">
             <input class="field" id="offlineName" maxlength="16" placeholder="Твой ник" autocomplete="off" spellcheck="false">
             <button class="btn btn-gold" type="submit">Добавить</button>
@@ -272,6 +291,14 @@
     <section class="page" id="page-settings">
       <div class="page-head"><h2 class="ribbon">Настройки</h2></div>
       <div class="settings-grid">
+        <div class="parchment wide">
+          <h3>Тема оформления</h3>
+          <div class="themes" id="themeList"></div>
+          <div class="look-opts">
+            <label class="check dark"><input type="checkbox" id="chkAnim"><span>Анимации</span></label>
+            <label class="check dark"><input type="checkbox" id="chkIntro"><span>Заставка с воротами при запуске</span></label>
+          </div>
+        </div>
         <div class="parchment">
           <h3>Память для игры</h3>
           <div class="ram">
@@ -341,6 +368,33 @@
     <span>Играть</span>
   </button>
 </footer>
+
+<!-- Первый запуск: выбор входа -->
+<div class="welcome hidden" id="welcome">
+  <div class="welcome-box">
+    <svg class="welcome-crest"><use href="#crest"/></svg>
+    <h2>Добро пожаловать!</h2>
+    <p>Как будешь играть?</p>
+    <div class="welcome-choices">
+      <button class="choice choice-ms" data-ms-login>
+        <svg viewBox="0 0 21 21" width="40" height="40" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25040"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+        <b>У меня есть лицензия</b>
+        <span>Вход через Microsoft. Скины, сервера с лицензией, Realms.</span>
+      </button>
+      <form class="choice choice-off" id="welcomeOffline">
+        <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path fill="#d4a84b" d="M12 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 12c5.5 0 9 2.7 9 6v2H3v-2c0-3.3 3.5-6 9-6z"/></svg>
+        <b>Играть без лицензии</b>
+        <span>Просто придумай ник: одиночная игра и сервера без лицензии.</span>
+        <div class="choice-row"><input class="field" name="nick" maxlength="16" placeholder="Ник" autocomplete="off" spellcheck="false"><button class="btn btn-gold" type="submit">Играть</button></div>
+      </form>
+    </div>
+    <div class="lic-links center">
+      <a href="https://signup.live.com/" target="_blank">Создать аккаунт Microsoft</a>
+      <a href="https://www.minecraft.net/ru-ru/store/minecraft-java-bedrock-edition-pc" target="_blank">Купить Minecraft</a>
+    </div>
+    <button class="welcome-skip" id="welcomeSkip">Позже</button>
+  </div>
+</div>
 
 <div class="modal hidden" id="modal">
   <div class="parchment modal-box">

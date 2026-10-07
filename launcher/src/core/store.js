@@ -10,6 +10,9 @@ const DEFAULTS = {
   memoryMb: 4096,
   resolution: { width: 1280, height: 720, fullscreen: false },
   closeOnLaunch: false,
+  theme: 'royal',
+  animations: true,
+  intro: true,
   jvmArgs: '',
   panelUrl: 'https://nlauncher-production.up.railway.app',
 };

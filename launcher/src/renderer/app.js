@@ -111,7 +111,7 @@ function renderAccounts() {
           <div class="type ${a.type === 'microsoft' ? 'msa' : ''}">${a.type === 'microsoft' ? 'Лицензия' : 'Офлайн'}</div></div>
         <div class="acc-actions">
           ${a.id === state.selectedAccount ? '' : '<button class="btn btn-gold" data-act="select">Выбрать</button>'}
-          <button class="btn btn-red" data-act="remove">Изгнать</button>
+          <button class="btn btn-red" data-act="remove">Удалить</button>
         </div>`;
       setAvatar(el.querySelector('img'), a);
       el.querySelector('[data-act="select"]')?.addEventListener('click', async () => {
@@ -138,19 +138,71 @@ function applyAccounts(data) {
   renderAccounts();
 }
 
-$('#btnAddMs').onclick = async () => {
-  const btn = $('#btnAddMs');
-  btn.disabled = true;
+// Вход по лицензии: одна функция для всех кнопок «Войти через Microsoft»
+const LINKS = {
+  xbox: 'https://www.xbox.com/ru-RU/live',
+  buy: 'https://www.minecraft.net/ru-ru/store/minecraft-java-bedrock-edition-pc',
+};
+async function msLogin(btn) {
+  document.querySelectorAll('[data-ms-login]').forEach(b => { b.disabled = true; b.classList.add('loading'); });
+  toast('Открываем окно входа Microsoft…');
   try {
     const acc = await api(km.accounts.addMicrosoft());
     applyAccounts(await api(km.accounts.list()));
+    closeWelcome();
+    celebrate(btn);
     toast(`Добро пожаловать, ${acc.name}!`);
   } catch (e) {
-    if (!/закрыто/i.test(e.message)) toast(e.message, 'error');
+    if (/закрыто/i.test(e.message)) return;
+    const actions = [{ label: 'Закрыть', cls: 'btn-iron' }];
+    if (/xbox/i.test(e.message)) actions.unshift({ label: 'Создать профиль Xbox', onClick: () => window.open(LINKS.xbox) });
+    if (/не куплен/i.test(e.message)) actions.unshift({ label: 'Купить Minecraft', onClick: () => window.open(LINKS.buy) });
+    actions.push({ label: 'Попробовать снова', onClick: () => msLogin(btn) });
+    modal('Не получилось войти', `<p>${esc(e.message)}</p>`, actions);
   } finally {
-    btn.disabled = false;
+    document.querySelectorAll('[data-ms-login]').forEach(b => { b.disabled = false; b.classList.remove('loading'); });
+  }
+}
+document.querySelectorAll('[data-ms-login]').forEach(b => { b.onclick = () => msLogin(b); });
+
+// Первый запуск: экран выбора входа
+function openWelcome() { $('#welcome').classList.remove('hidden'); }
+function closeWelcome() {
+  const w = $('#welcome');
+  if (w.classList.contains('hidden')) return;
+  w.classList.add('leaving');
+  setTimeout(() => { w.classList.add('hidden'); w.classList.remove('leaving'); }, 400);
+}
+$('#welcomeSkip').onclick = closeWelcome;
+$('#welcomeOffline').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const acc = await api(km.accounts.addOffline(e.target.nick.value));
+    applyAccounts(await api(km.accounts.list()));
+    closeWelcome();
+    toast(`${acc.name} добавлен`);
+  } catch (err) {
+    toast(err.message, 'error');
   }
 };
+
+// Золотой салют из элемента
+function celebrate(el) {
+  const r = (el && el.getBoundingClientRect && el.getBoundingClientRect().width) ? el.getBoundingClientRect()
+    : { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 };
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  for (let i = 0; i < 28; i++) {
+    const p = document.createElement('i');
+    p.className = 'burst';
+    const ang = Math.random() * Math.PI * 2, dist = 60 + Math.random() * 110;
+    p.style.left = cx + 'px'; p.style.top = cy + 'px';
+    p.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+    p.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+    p.style.animationDelay = (Math.random() * .12).toFixed(2) + 's';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  }
+}
 
 $('#offlineForm').onsubmit = async e => {
   e.preventDefault();
@@ -346,6 +398,44 @@ function renderSettings() {
   $('#dirHint').textContent = 'Игра хранится в ' + state.info.gameDir;
 }
 
+// ── Темы и анимации ─────────────────────────────────────────────
+const THEMES = [
+  { id: 'royal', name: 'Королевство', colors: ['#23407e', '#8f1d1d', '#d4a84b'] },
+  { id: 'forest', name: 'Тёмный лес', colors: ['#2b6a3c', '#7a3b12', '#d4a84b'] },
+  { id: 'dragon', name: 'Пламя дракона', colors: ['#8f1d1d', '#e07a2e', '#f2b84b'] },
+  { id: 'ice', name: 'Ледяная крепость', colors: ['#3c78a8', '#2c5d80', '#dfe8f2'] },
+  { id: 'purple', name: 'Королевский пурпур', colors: ['#55309a', '#8f1d4a', '#d4a84b'] },
+  { id: 'night', name: 'Тёмная ночь', colors: ['#3a3f4f', '#5a2a2a', '#b8b8c8'] },
+];
+
+function applyLook() {
+  const s = state.settings;
+  const root = document.documentElement;
+  root.dataset.theme = s.theme || 'royal';
+  root.classList.toggle('no-anim', s.animations === false);
+  root.classList.toggle('no-intro', s.intro === false);
+  try { localStorage.setItem('km-look', JSON.stringify({ theme: s.theme, animations: s.animations, intro: s.intro })); } catch {}
+  const list = $('#themeList');
+  list.innerHTML = '';
+  for (const t of THEMES) {
+    const b = document.createElement('button');
+    b.className = 'theme' + (t.id === (s.theme || 'royal') ? ' active' : '');
+    b.innerHTML = `<span class="sw">${t.colors.map(c => `<i style="background:${c}"></i>`).join('')}</span><b>${esc(t.name)}</b>`;
+    b.onclick = () => {
+      saveSetting({ theme: t.id });
+      document.body.classList.add('theme-switch');
+      setTimeout(() => document.body.classList.remove('theme-switch'), 600);
+      applyLook();
+      celebrate(b);
+    };
+    list.appendChild(b);
+  }
+  $('#chkAnim').checked = s.animations !== false;
+  $('#chkIntro').checked = s.intro !== false;
+}
+$('#chkAnim').onchange = e => { saveSetting({ animations: e.target.checked }); applyLook(); };
+$('#chkIntro').onchange = e => { saveSetting({ intro: e.target.checked }); applyLook(); };
+
 function saveSetting(patch) {
   Object.assign(state.settings, patch);
   api(km.settings.update(patch)).catch(e => toast(e.message, 'error'));
@@ -401,9 +491,10 @@ function setBusy(busy, label) {
 
 async function play(target) {
   if (state.launching || state.playing) return;
-  if (!currentAccount()) { go('accounts'); return toast('Сначала добавь аккаунт', 'error'); }
+  if (!currentAccount()) { openWelcome(); return; }
   if (!target) { go('versions'); return toast('Выбери версию', 'error'); }
   state.launching = true;
+  celebrate($('#btnPlay'));
   setBusy(true);
   setProgress('Подготовка…', 0);
   appendLog(`\n=== Запуск ${versionLabel(target)} (${new Date().toLocaleTimeString('ru-RU')}) ===\n`);
@@ -430,6 +521,8 @@ km.on.progress(p => {
   if (p.started) {
     state.launching = false;
     state.playing = true;
+    celebrate($('#btnPlay'));
+    toast('Игра запущена! Удачи в походе');
     setBusy(true, 'Закрыть игру');
     $('#btnPlay').disabled = false;
     $('#btnPlay').classList.add('playing');
@@ -464,6 +557,7 @@ km.on.update(u => {
 (() => {
   const intro = $('#intro');
   if (!intro) return;
+  if (document.documentElement.classList.contains('no-intro')) return intro.remove();
   const done = () => intro.remove();
   intro.addEventListener('click', () => { intro.classList.add('skip'); setTimeout(done, 320); });
   setTimeout(done, 3100);
@@ -488,6 +582,8 @@ km.on.update(u => {
   state.settings = await api(km.settings.get());
   $('#appVersion').textContent = 'KM Launcher v' + state.info.version;
   applyAccounts(await api(km.accounts.list()));
+  applyLook();
+  if (!state.accounts.length) setTimeout(openWelcome, document.documentElement.classList.contains('no-intro') ? 300 : 2600);
   renderSettings();
   updateVersionLabels();
   loadVersions();
