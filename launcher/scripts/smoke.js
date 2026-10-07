@@ -15,7 +15,16 @@ const [kind = 'vanilla', wanted = '1.20.1'] = process.argv.slice(2);
 const acc = auth.addOffline('KMSmoke');
 store.update({ selectedAccount: acc.id, memoryMb: 2048 });
 
-const MARKERS = [/Setting user: KMSmoke/, /Loading Minecraft .* with Fabric Loader/];
+// Игра дошла до своего кода: вход выполнен или уже создаётся окно.
+// В CI нет видеокарты, поэтому старые версии падают на OpenGL — это тоже значит, что запуск собран правильно.
+const MARKERS = [
+  /Setting user: KMSmoke/,
+  /Loading Minecraft .* with Fabric Loader/,
+  /Pixel format not accelerated/,
+  /GLFW error 65542/,
+  /LWJGL Version: /,
+  /Backend library: LWJGL/,
+];
 const timeout = setTimeout(() => fail('таймаут 15 минут'), 15 * 60 * 1000);
 let lastStage = '';
 let output = '';
