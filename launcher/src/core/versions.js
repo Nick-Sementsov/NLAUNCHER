@@ -69,12 +69,8 @@ async function installLoaderProfile(kind, mcVersion, loaderVersion) {
   const name = kind === 'quilt' ? 'Quilt' : 'Fabric';
   let loader = loaderVersion;
   if (!loader) {
-    const loaders = await getJson(`${base}/versions/loader/${encodeURIComponent(mcVersion)}`);
-    const pick = kind === 'quilt'
-      ? loaders.find(l => !/beta|pre/i.test(l.loader.version)) || loaders[0]
-      : loaders.find(l => l.loader.stable) || loaders[0];
-    if (!pick) throw new Error(`${name} пока не поддерживает ${mcVersion}`);
-    loader = pick.loader.version;
+    loader = await recommendedLoader(kind, mcVersion);
+    if (!loader) throw new Error(`${name} пока не поддерживает ${mcVersion}`);
   }
   const id = `${kind}-loader-${loader}-${mcVersion}`;
   const dir = path.join(paths.game, 'versions', id);
@@ -112,4 +108,13 @@ async function loaderVersions(kind, mcVersion) {
   return [];
 }
 
-module.exports = { list, requiredJava, versionType, fabricGameVersions, installFabric, installQuilt, loaderVersions };
+// Версия загрузчика по умолчанию. У Quilt новые версии выходят только как beta,
+// а старые «стабильные» (0.24 и ниже) не читают классы новых Minecraft (Java 25),
+// поэтому для Quilt берём самую свежую.
+async function recommendedLoader(kind, mcVersion) {
+  const list = await loaderVersions(kind, mcVersion);
+  const pick = kind === 'fabric' ? list.find(l => l.stable) || list[0] : list[0];
+  return pick ? pick.id : '';
+}
+
+module.exports = { recommendedLoader, list, requiredJava, versionType, fabricGameVersions, installFabric, installQuilt, loaderVersions };

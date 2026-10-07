@@ -19,7 +19,15 @@ function dir(id) {
 }
 
 function readMeta(id) {
-  try { return JSON.parse(fs.readFileSync(path.join(dir(id), META), 'utf8')); } catch { return null; }
+  let meta;
+  try { meta = JSON.parse(fs.readFileSync(path.join(dir(id), META), 'utf8')); } catch { return null; }
+  // 1.5.0 запоминал версию загрузчика, подобранную автоматически, и сборка застревала на ней.
+  // Теперь пустая версия = «рекомендуемая», а закреплённая — только выбранная вручную или из модпака.
+  if (!('loaderPinned' in meta)) {
+    meta.loaderPinned = !!meta.source && !!meta.loaderVersion;
+    if (!meta.loaderPinned) meta.loaderVersion = '';
+  }
+  return meta;
 }
 
 function writeMeta(id, meta) {
@@ -43,6 +51,7 @@ function summary(id, meta) {
   const d = dir(id);
   return {
     id, name: meta.name, mc: meta.mc, loader: meta.loader, loaderVersion: meta.loaderVersion || '',
+    loaderResolved: meta.loaderVersion || meta.loaderResolved || '',
     icon: meta.icon || '', created: meta.created, lastPlayed: meta.lastPlayed || null,
     memoryMb: meta.memoryMb || 0, source: meta.source || null,
     mods: countFiles(path.join(d, 'mods'), /\.jar$/i),
@@ -72,15 +81,17 @@ function create({ name, mc, loader = 'vanilla', loaderVersion = '', icon = '', s
   if (!LOADERS.includes(loader)) throw new Error('Неизвестный загрузчик');
   const id = slug(name);
   fs.mkdirSync(path.join(dir(id), 'mods'), { recursive: true });
-  writeMeta(id, { name, mc, loader, loaderVersion, icon, source, created: new Date().toISOString(), files: {} });
+  writeMeta(id, { name, mc, loader, loaderVersion, loaderPinned: !!loaderVersion, icon, source, created: new Date().toISOString(), files: {} });
   return get(id);
 }
 
 function update(id, patch) {
   const meta = readMeta(id);
   if (!meta) throw new Error('Сборка не найдена');
-  const allowed = ['name', 'mc', 'loader', 'loaderVersion', 'memoryMb', 'lastPlayed', 'icon'];
+  const allowed = ['name', 'mc', 'loader', 'loaderVersion', 'loaderResolved', 'memoryMb', 'lastPlayed', 'icon'];
+  if ('loader' in patch && patch.loader !== meta.loader && !('loaderVersion' in patch)) patch = { ...patch, loaderVersion: '' };
   for (const k of allowed) if (k in patch) meta[k] = patch[k];
+  if ('loaderVersion' in patch) { meta.loaderPinned = !!patch.loaderVersion; meta.loaderResolved = ''; }
   if (!String(meta.name || '').trim()) throw new Error('Название не может быть пустым');
   if (!LOADERS.includes(meta.loader)) throw new Error('Неизвестный загрузчик');
   writeMeta(id, meta);

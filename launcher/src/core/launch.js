@@ -134,12 +134,11 @@ async function launch(target, { onProgress, onLog, onExit }) {
     if (inst.memoryMb) memoryMb = inst.memoryMb;
     let loaderVersion = inst.loaderVersion;
     if (inst.loader !== 'vanilla' && !loaderVersion) {
+      // версия не закреплена: каждый запуск берём рекомендуемую (свежие исправления приходят сами)
       onProgress({ stage: 'Ищем версию загрузчика…', percent: 0 });
-      const list = await versions.loaderVersions(inst.loader, mcVersion);
-      const pick = list.find(l => l.stable) || list[0];
-      if (!pick) throw new Error(`Для ${mcVersion} нет загрузчика ${inst.loader}`);
-      loaderVersion = pick.id;
-      instances.update(inst.id, { loaderVersion });
+      try { loaderVersion = await versions.recommendedLoader(inst.loader, mcVersion); } catch { loaderVersion = inst.loaderResolved; }
+      if (!loaderVersion) throw new Error(`Для ${mcVersion} нет загрузчика ${inst.loader}`);
+      instances.update(inst.id, { loaderResolved: loaderVersion });
     }
     if (inst.loader === 'fabric') {
       onProgress({ stage: 'Ставим Fabric…', percent: 0 });
