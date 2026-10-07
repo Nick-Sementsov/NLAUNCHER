@@ -351,7 +351,7 @@ async function installCfPack({ projectId, fileId, file }, onProgress) {
   if (projectId || fileId) {
     const proj = await curseforge.project(projectId);
     icon = proj.logo?.thumbnailUrl || '';
-    const f = fileId ? (await curseforge.filesById([fileId]))[0] : (await curseforge.files(projectId))[0];
+    const f = fileId ? await curseforge.filesByRef([{ projectID: projectId, fileID: fileId }]).then(l => l[0]) : (await curseforge.files(projectId))[0];
     if (!f) throw new Error('У этой сборки нет файлов для скачивания');
     if (!f.downloadUrl) throw new Error(`Автор запретил скачивать эту сборку из лаунчеров. Скачай .zip с сайта ${curseforge.pageUrl(proj, 'modpacks')} и нажми «Импорт файла».`);
     source = { source: 'curseforge', projectId: String(proj.id), versionId: String(f.id), title: proj.name, version: f.displayName };
@@ -382,11 +382,9 @@ async function installCfPack({ projectId, fileId, file }, onProgress) {
   try {
     const refs = (man.files || []).filter(f => f.required !== false);
     onProgress?.({ stage: 'Получаем список модов…', percent: 0 });
-    const files = [];
-    for (let i = 0; i < refs.length; i += 500) files.push(...await curseforge.filesById(refs.slice(i, i + 500).map(f => f.fileID)));
+    const files = await curseforge.filesByRef(refs);
     const mods = new Map();
-    const modIds = [...new Set(files.map(f => f.modId))];
-    for (let i = 0; i < modIds.length; i += 500) for (const m of await curseforge.projects(modIds.slice(i, i + 500))) mods.set(m.id, m);
+    for (const m of await curseforge.projects(files.map(f => f.modId))) mods.set(m.id, m);
     const meta = readMeta(inst.id);
     let done = 0;
     await pool(files, 6, async f => {
