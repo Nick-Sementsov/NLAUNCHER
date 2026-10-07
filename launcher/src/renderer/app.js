@@ -223,6 +223,10 @@ function versionLabel(sel) {
     const b = state.builds.find(x => x.id === sel.id);
     return b ? b.name : 'Сборка сервера';
   }
+  if (sel.kind === 'instance') {
+    const i = (state.instances || []).find(x => x.id === sel.id);
+    return i ? i.name : 'Сборка';
+  }
   return sel.kind === 'fabric' ? `Fabric ${sel.id}` : sel.id;
 }
 
@@ -553,6 +557,375 @@ km.on.update(u => {
   }
 });
 
+// ── Сборки (как в Prism) ────────────────────────────────────────
+const LOADER_NAMES = { vanilla: 'Ванилла', fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge' };
+const KIND_TYPE = { mods: 'mod', resourcepacks: 'resourcepack', shaders: 'shader' };
+const KIND_NAMES = { mods: 'моды', resourcepacks: 'ресурспаки', shaders: 'шейдеры', saves: 'миры' };
+const CRATE = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">' +
+  '<rect width="16" height="16" fill="#7a5230"/><rect x="1" y="1" width="14" height="14" fill="#a8763f"/>' +
+  '<rect x="1" y="5" width="14" height="1" fill="#6b4524"/><rect x="1" y="10" width="14" height="1" fill="#6b4524"/>' +
+  '<rect x="7" y="1" width="2" height="14" fill="#8a5c2e"/><rect x="6" y="6" width="4" height="4" fill="#d4a84b"/></svg>');
+
+state.instances = [];
+state.inst = null;       // открытая сборка
+state.instTab = 'mods';
+state.content = [];
+
+function instIcon(img, url) {
+  img.onerror = () => { img.onerror = null; img.src = CRATE; };
+  img.src = url || CRATE;
+}
+
+function instSub(i) {
+  const loader = i.loader === 'vanilla' ? '' : ` · ${LOADER_NAMES[i.loader]}${i.loaderVersion ? ' ' + i.loaderVersion : ''}`;
+  return `Minecraft ${i.mc}${loader}`;
+}
+
+function fmtNum(n) {
+  return n >= 1e6 ? (n / 1e6).toFixed(1) + ' млн' : n >= 1e3 ? Math.round(n / 1e3) + ' тыс' : String(n);
+}
+
+async function loadInstances() {
+  try { state.instances = await api(km.instances.list()); } catch (e) { toast(e.message, 'error'); }
+  renderInstances();
+  updateVersionLabels();
+}
+
+function renderInstances() {
+  const grid = $('#instanceGrid');
+  grid.innerHTML = '';
+  if (!state.instances.length) {
+    grid.innerHTML = `<div class="inst-empty parchment"><h3>Сборок пока нет</h3>
+      <p>Нажми «Создать сборку», выбери версию и загрузчик (Fabric, Quilt или Forge), а потом добавь моды.
+      Или скачай готовую сборку с Modrinth.</p></div>`;
+    return;
+  }
+  const sel = state.settings.selectedVersion;
+  state.instances.forEach((i, n) => {
+    const el = document.createElement('div');
+    el.className = 'icard' + (sel?.kind === 'instance' && sel.id === i.id ? ' selected' : '');
+    el.style.setProperty('--i', n);
+    el.innerHTML = `<img class="inst-icon" alt="">
+      <div class="icard-body"><b>${esc(i.name)}</b><small>${esc(instSub(i))}</small>
+      <span class="icard-meta">${i.loader === 'vanilla' ? 'Без модов' : `Модов: ${i.mods}`}${i.lastPlayed ? ' · играл ' + fmtDate(i.lastPlayed) : ''}</span></div>
+      <div class="icard-btns"><button class="btn btn-gold" data-a="play">▶ Играть</button><button class="btn btn-iron" data-a="open">Настроить</button></div>`;
+    instIcon(el.querySelector('img'), i.icon);
+    el.querySelector('[data-a=play]').onclick = e => { e.stopPropagation(); playInstance(i.id); };
+    el.querySelector('[data-a=open]').onclick = e => { e.stopPropagation(); openInstance(i.id); };
+    el.onclick = () => openInstance(i.id);
+    grid.appendChild(el);
+  });
+}
+
+function playInstance(id) {
+  selectVersion({ kind: 'instance', id });
+  renderInstances();
+  play(state.settings.selectedVersion);
+}
+
+// ── Создание сборки ──────────────────────────────────────────────
+function newInstanceDialog() {
+  if (!state.versions) return toast('Список версий ещё загружается', 'error');
+  const releases = state.versions.versions.filter(v => v.type === 'release');
+  const opts = releases.map(v => `<option value="${esc(v.id)}">${esc(v.id)}</option>`).join('');
+  modal('Новая сборка', `
+    <label class="lbl">Название</label>
+    <input class="field" id="niName" maxlength="40" placeholder="Моя сборка">
+    <label class="lbl">Версия игры</label>
+    <select class="field" id="niMc">${opts}</select>
+    <label class="lbl">Загрузчик модов</label>
+    <div class="seg" id="niLoader">
+      ${Object.entries(LOADER_NAMES).map(([k, v]) => `<button type="button" data-l="${k}" class="${k === 'fabric' ? 'on' : ''}">${v}</button>`).join('')}
+    </div>
+    <div id="niLvWrap"><label class="lbl">Версия загрузчика</label><select class="field" id="niLv"><option value="">Рекомендуемая</option></select></div>
+    <p class="hint">Fabric: лёгкий и быстрый, много модов для новых версий. Forge: классика для больших модпаков.</p>`, [
+    { label: 'Отмена', cls: 'btn-iron' },
+    { label: 'Создать', onClick: createInstance },
+  ]);
+  state.niLoader = 'fabric';
+  const loadLv = async () => {
+    const loader = state.niLoader;
+    const sel = $('#niLv');
+    $('#niLvWrap').classList.toggle('hidden', loader === 'vanilla');
+    sel.innerHTML = '<option value="">Рекомендуемая</option>';
+    if (loader === 'vanilla') return;
+    const mc = $('#niMc').value;
+    try {
+      const list = await api(km.loaders(loader, mc));
+      if (loader !== state.niLoader || mc !== $('#niMc').value) return;
+      if (!list.length) { sel.innerHTML = `<option value="">Нет ${LOADER_NAMES[loader]} для ${esc(mc)}</option>`; return; }
+      sel.innerHTML += list.slice(0, 80).map(l => `<option value="${esc(l.id)}">${esc(l.id)}${l.stable ? '' : ' (тест)'}</option>`).join('');
+    } catch { /* оставим «Рекомендуемая» */ }
+  };
+  $$('#niLoader button').forEach(b => b.onclick = () => {
+    state.niLoader = b.dataset.l;
+    $$('#niLoader button').forEach(x => x.classList.toggle('on', x === b));
+    loadLv();
+  });
+  $('#niMc').onchange = loadLv;
+  loadLv();
+  setTimeout(() => $('#niName').focus(), 50);
+}
+
+async function createInstance() {
+  const mc = $('#niMc').value;
+  const name = $('#niName').value.trim() || `Сборка ${mc}`;
+  try {
+    const inst = await api(km.instances.create({ name, mc, loader: state.niLoader, loaderVersion: $('#niLv').value }));
+    toast(`Сборка «${inst.name}» создана`);
+    await loadInstances();
+    openInstance(inst.id);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+$('#btnNewInstance').onclick = newInstanceDialog;
+$('#btnBrowsePacks').onclick = () => openBrowser({ type: 'modpack' });
+$('#btnImportPack').onclick = async () => {
+  try {
+    taskStart('Импорт сборки…');
+    const inst = await api(km.modpack.import());
+    taskEnd();
+    if (inst) { toast(`Сборка «${inst.name}» готова`); celebrate($('#btnImportPack')); await loadInstances(); openInstance(inst.id); }
+  } catch (e) { taskEnd(); toast(e.message, 'error'); }
+};
+
+// ── Одна сборка ─────────────────────────────────────────────────
+async function openInstance(id) {
+  try { state.inst = await api(km.instances.get(id)); } catch (e) { return toast(e.message, 'error'); }
+  const i = state.inst;
+  $('#instName').textContent = i.name;
+  $('#instSub').textContent = instSub(i);
+  instIcon($('#instIcon'), i.icon);
+  go('instance');
+  $$('.banner').forEach(b => b.classList.toggle('active', b.dataset.page === 'instances'));
+  setInstTab(state.instTab);
+}
+
+function setInstTab(tab) {
+  state.instTab = tab;
+  $$('#instTabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const settings = tab === 'settings';
+  $('#instContentPane').classList.toggle('hidden', settings);
+  $('#instSettingsPane').classList.toggle('hidden', !settings);
+  if (settings) return renderInstSettings();
+  $('#btnAddModrinth').classList.toggle('hidden', tab === 'saves');
+  $('#btnAddFile').classList.toggle('hidden', tab === 'saves');
+  $('#contentSearch').value = '';
+  loadContent();
+}
+
+async function loadContent() {
+  const list = $('#contentList');
+  list.innerHTML = '<p class="empty">Загружаем…</p>';
+  try { state.content = await api(km.instances.content(state.inst.id, state.instTab)); }
+  catch (e) { state.content = []; toast(e.message, 'error'); }
+  renderContent();
+}
+
+function renderContent() {
+  const list = $('#contentList');
+  const q = $('#contentSearch').value.trim().toLowerCase();
+  const tab = state.instTab;
+  const items = state.content.filter(c => !q || c.name.toLowerCase().includes(q) || c.file.toLowerCase().includes(q));
+  list.innerHTML = '';
+  if (!items.length) {
+    const vanillaMods = tab === 'mods' && state.inst.loader === 'vanilla';
+    list.innerHTML = `<p class="empty">${q ? 'Ничего не нашлось.' : vanillaMods
+      ? 'Это ванильная сборка: моды работают только с Fabric, Quilt или Forge. Создай новую сборку с загрузчиком.'
+      : tab === 'saves' ? 'Миров пока нет. Они появятся после игры.' : `Здесь пока пусто. Нажми «Добавить с Modrinth», чтобы найти ${KIND_NAMES[tab]}.`}</p>`;
+    return;
+  }
+  items.forEach((c, n) => {
+    const row = document.createElement('div');
+    row.className = 'crow' + (c.enabled ? '' : ' off');
+    row.style.setProperty('--i', n);
+    row.innerHTML = `<img class="inst-icon small" alt="">
+      <div class="crow-body"><b>${esc(c.name)}</b><small>${esc(c.version ? c.version + ' · ' : '')}${esc(c.file)}</small></div>
+      ${tab === 'saves' ? '' : `<label class="switch" title="${c.enabled ? 'Выключить' : 'Включить'}"><input type="checkbox" ${c.enabled ? 'checked' : ''}><i></i></label>`}
+      <button class="icon-btn" title="Удалить">✕</button>`;
+    instIcon(row.querySelector('img'), c.icon);
+    const sw = row.querySelector('.switch input');
+    if (sw) sw.onchange = async () => {
+      try { await api(km.instances.toggle(state.inst.id, tab, c.file)); } catch (e) { toast(e.message, 'error'); }
+      loadContent();
+    };
+    row.querySelector('.icon-btn').onclick = () => modal('Удалить?', `<p>«${esc(c.name)}» будет удалён из сборки.</p>`, [
+      { label: 'Отмена', cls: 'btn-iron' },
+      { label: 'Удалить', cls: 'btn-red', onClick: async () => {
+        row.classList.add('leaving');
+        try { await api(km.instances.removeFile(state.inst.id, tab, c.file)); } catch (e) { toast(e.message, 'error'); }
+        setTimeout(loadContent, 250);
+      } },
+    ]);
+    list.appendChild(row);
+  });
+}
+
+function renderInstSettings() {
+  const i = state.inst;
+  $('#instEditName').value = i.name;
+  const total = state.info?.totalMemMb || 8192;
+  const opts = [0, 2048, 3072, 4096, 6144, 8192, 12288, 16384].filter(m => m < total);
+  $('#instEditMem').innerHTML = opts.map(m => `<option value="${m}" ${m === (i.memoryMb || 0) ? 'selected' : ''}>${m ? fmtMem(m) : 'Как в общих настройках'}</option>`).join('');
+  $('#instLoaderInfo').textContent = `${instSub(i)}${i.source ? ` · из Modrinth: ${i.source.title} ${i.source.version || ''}` : ''}`;
+}
+
+$$('#instTabs .tab').forEach(t => t.addEventListener('click', () => setInstTab(t.dataset.tab)));
+$('#instBack').onclick = () => { go('instances'); loadInstances(); };
+$('#instPlay').onclick = () => playInstance(state.inst.id);
+$('#contentSearch').oninput = renderContent;
+$('#btnAddFile').onclick = async () => {
+  try {
+    const n = await api(km.instances.addFiles(state.inst.id, state.instTab));
+    if (n) { toast(`Добавлено файлов: ${n}`); loadContent(); }
+  } catch (e) { toast(e.message, 'error'); }
+};
+$('#btnOpenKind').onclick = () => api(km.openFolder(`instance:${state.inst.id}/${state.instTab}`)).catch(e => toast(e.message, 'error'));
+$('[data-inst-folder]').onclick = () => api(km.openFolder(`instance:${state.inst.id}`)).catch(e => toast(e.message, 'error'));
+$('#btnAddModrinth').onclick = () => openBrowser({ type: KIND_TYPE[state.instTab], inst: state.inst });
+$('#instSave').onclick = async () => {
+  try {
+    state.inst = await api(km.instances.update(state.inst.id, { name: $('#instEditName').value, memoryMb: +$('#instEditMem').value }));
+    $('#instName').textContent = state.inst.name;
+    toast('Сохранено');
+    loadInstances();
+  } catch (e) { toast(e.message, 'error'); }
+};
+$('#instDuplicate').onclick = async () => {
+  try {
+    taskStart('Копируем сборку…');
+    const copy = await api(km.instances.duplicate(state.inst.id));
+    taskEnd();
+    toast(`Готово: «${copy.name}»`);
+    await loadInstances();
+    openInstance(copy.id);
+  } catch (e) { taskEnd(); toast(e.message, 'error'); }
+};
+$('#instDelete').onclick = () => modal('Удалить сборку?', `<p>Сборка «${esc(state.inst.name)}» будет удалена вместе с модами и мирами. Это нельзя отменить.</p>`, [
+  { label: 'Отмена', cls: 'btn-iron' },
+  { label: 'Удалить навсегда', cls: 'btn-red', onClick: async () => {
+    try {
+      await api(km.instances.remove(state.inst.id));
+      const sel = state.settings.selectedVersion;
+      if (sel?.kind === 'instance' && sel.id === state.inst.id && state.versions?.latest?.release) selectVersion({ kind: 'vanilla', id: state.versions.latest.release });
+      toast('Сборка удалена');
+      go('instances');
+      loadInstances();
+    } catch (e) { toast(e.message, 'error'); }
+  } },
+]);
+
+// ── Каталог Modrinth ─────────────────────────────────────────────
+const browser = { type: 'mod', inst: null, offset: 0, total: 0, seq: 0, installed: new Set() };
+const TYPE_TITLES = { mod: 'Моды', resourcepack: 'Ресурспаки', shader: 'Шейдеры', modpack: 'Готовые сборки' };
+
+function openBrowser({ type, inst = null }) {
+  browser.type = type;
+  browser.inst = inst;
+  browser.installed = new Set(inst ? state.content.map(c => c.projectId).filter(Boolean) : []);
+  $('#browserTitle').textContent = `${TYPE_TITLES[type]} с Modrinth`;
+  $('#browserFor').textContent = inst
+    ? `Для сборки «${inst.name}»: ${instSub(inst)}. Показаны только подходящие.`
+    : 'Нажми «Скачать»: лаунчер сам создаст сборку со всеми модами.';
+  $('#browserSearch').value = '';
+  $('#browserSort').value = type === 'modpack' ? 'downloads' : 'relevance';
+  $('#browser').classList.remove('hidden');
+  searchBrowser(true);
+  setTimeout(() => $('#browserSearch').focus(), 50);
+}
+
+async function searchBrowser(reset) {
+  const seq = ++browser.seq;
+  if (reset) { browser.offset = 0; $('#browserList').innerHTML = '<p class="empty">Ищем…</p>'; }
+  const inst = browser.inst;
+  try {
+    const res = await api(km.modrinth.search({
+      query: $('#browserSearch').value.trim(), type: browser.type, index: $('#browserSort').value,
+      mc: inst?.mc, loader: inst?.loader, offset: browser.offset, limit: 20,
+    }));
+    if (seq !== browser.seq) return;
+    if (reset) $('#browserList').innerHTML = '';
+    browser.total = res.total;
+    if (!res.hits.length && reset) $('#browserList').innerHTML = '<p class="empty">Ничего не нашлось.</p>';
+    res.hits.forEach((h, n) => $('#browserList').appendChild(browserRow(h, n)));
+    browser.offset += res.hits.length;
+    $('#browserMore').classList.toggle('hidden', browser.offset >= browser.total);
+  } catch (e) {
+    if (seq !== browser.seq) return;
+    $('#browserList').innerHTML = `<p class="empty">Modrinth не отвечает: ${esc(e.message)}</p>`;
+  }
+}
+
+function browserRow(h, n) {
+  const row = document.createElement('div');
+  row.className = 'mrow';
+  row.style.setProperty('--i', n);
+  const have = browser.installed.has(h.id);
+  row.innerHTML = `<img class="inst-icon" alt="">
+    <div class="mrow-body"><b>${esc(h.title)}</b> <small>от ${esc(h.author)} · ⬇ ${fmtNum(h.downloads)}</small><p>${esc(h.description)}</p></div>
+    <button class="btn ${have ? 'btn-iron' : 'btn-gold'}" ${have ? 'disabled' : ''}>${have ? 'Установлено' : browser.type === 'modpack' ? 'Скачать' : 'Установить'}</button>`;
+  instIcon(row.querySelector('img'), h.icon);
+  const btn = row.querySelector('button');
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = 'Качаем…';
+    row.classList.add('working');
+    try {
+      if (browser.type === 'modpack') {
+        taskStart(`Скачиваем ${h.title}…`);
+        const inst = await api(km.modpack.install({ projectId: h.id }));
+        taskEnd();
+        toast(`Сборка «${inst.name}» готова к игре!`);
+        celebrate(btn);
+        $('#browser').classList.add('hidden');
+        await loadInstances();
+        openInstance(inst.id);
+        return;
+      }
+      taskStart(`Ставим ${h.title}…`);
+      await api(km.instances.install(browser.inst.id, h.id, browser.type));
+      taskEnd();
+      browser.installed.add(h.id);
+      btn.textContent = 'Установлено';
+      btn.className = 'btn btn-iron';
+      celebrate(btn);
+      toast(`${h.title}: установлено`);
+      loadContent();
+    } catch (e) {
+      taskEnd();
+      btn.disabled = false;
+      btn.textContent = 'Повторить';
+      toast(e.message, 'error');
+    } finally { row.classList.remove('working'); }
+  };
+  return row;
+}
+
+let browserTimer = null;
+$('#browserSearch').oninput = () => { clearTimeout(browserTimer); browserTimer = setTimeout(() => searchBrowser(true), 350); };
+$('#browserSort').onchange = () => searchBrowser(true);
+$('#browserMore').onclick = () => searchBrowser(false);
+$('#browserClose').onclick = () => $('#browser').classList.add('hidden');
+$('#browser').addEventListener('click', e => { if (e.target.id === 'browser') $('#browser').classList.add('hidden'); });
+
+// ── Полоска фоновой загрузки ─────────────────────────────────────
+let taskCount = 0;
+function taskStart(stage) {
+  taskCount++;
+  $('#taskStage').textContent = stage;
+  $('#taskFill').style.width = '0%';
+  $('#task').classList.remove('hidden');
+}
+function taskEnd() {
+  taskCount = Math.max(0, taskCount - 1);
+  if (!taskCount) $('#task').classList.add('hidden');
+}
+km.on.content(p => {
+  $('#taskStage').textContent = p.stage;
+  $('#taskFill').style.width = (p.percent || 0) + '%';
+});
+
 // ── Заставка: врата открываются, клик пропускает ─────────────────
 (() => {
   const intro = $('#intro');
@@ -650,6 +1023,7 @@ const weather = (() => {
   renderSettings();
   updateVersionLabels();
   loadVersions();
+  loadInstances();
   loadPanel();
   setInterval(pingServer, 60000);
 })().catch(e => toast(e.message, 'error'));

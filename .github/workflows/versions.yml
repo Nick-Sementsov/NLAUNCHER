@@ -4,7 +4,7 @@ name: Проверка версий
 on:
   push:
     branches: ['claude/**']
-    paths: ['launcher/src/core/**', 'launcher/scripts/smoke.js', '.github/workflows/versions.yml']
+    paths: ['launcher/src/core/**', 'launcher/scripts/smoke.js', 'launcher/scripts/smoke-instance.js', '.github/workflows/versions.yml']
   workflow_dispatch:
 
 defaults:
@@ -27,6 +27,10 @@ jobs:
           - { kind: fabric, version: '1.20.1' }
           - { kind: fabric, version: '1.16.5' }
           - { kind: fabric, version: '1.21.4' }
+          - { kind: instance-mods, version: '1.20.1' }
+          - { kind: instance-mods, version: '1.21.1' }
+          - { kind: instance-modpack, version: '-' }
+          - { kind: instance-forge, version: '1.20.1' }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,4 +39,9 @@ jobs:
           cache: npm
           cache-dependency-path: launcher/package-lock.json
       - run: npm ci
-      - run: node scripts/smoke.js ${{ matrix.kind }} ${{ matrix.version }}
+      - name: Запуск версии
+        if: ${{ !startsWith(matrix.kind, 'instance-') }}
+        run: node scripts/smoke.js ${{ matrix.kind }} ${{ matrix.version }}
+      - name: Запуск сборки
+        if: ${{ startsWith(matrix.kind, 'instance-') }}
+        run: node scripts/smoke-instance.js ${{ matrix.kind == 'instance-mods' && 'mods' || matrix.kind == 'instance-modpack' && 'modpack' || 'forge' }} ${{ matrix.version }}
