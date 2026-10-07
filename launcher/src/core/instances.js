@@ -352,7 +352,7 @@ async function installCfPack({ projectId, fileId, file }, onProgress) {
     const proj = await curseforge.project(projectId);
     icon = proj.logo?.thumbnailUrl || '';
     const f = fileId ? await curseforge.filesByRef([{ projectID: projectId, fileID: fileId }]).then(l => l[0]) : (await curseforge.files(projectId))[0];
-    if (!f) throw new Error('У этой сборки нет файлов для скачивания');
+    if (!f || f.missing) throw new Error('У этой сборки нет файлов для скачивания');
     if (!f.downloadUrl) throw new Error(`Автор запретил скачивать эту сборку из лаунчеров. Скачай .zip с сайта ${curseforge.pageUrl(proj, 'modpacks')} и нажми «Импорт файла».`);
     source = { source: 'curseforge', projectId: String(proj.id), versionId: String(f.id), title: proj.name, version: f.displayName };
     packFile = path.join(paths.cache, 'modpacks', `cf-${f.id}.zip`);
@@ -389,10 +389,10 @@ async function installCfPack({ projectId, fileId, file }, onProgress) {
     let done = 0;
     await pool(files, 6, async f => {
       const m = mods.get(f.modId);
-      const folder = CF_FOLDER[m?.classId] || (/\.jar$/i.test(f.fileName) ? 'mods' : 'resourcepacks');
+      const folder = CF_FOLDER[m?.classId] || (f.missing || /\.jar$/i.test(f.fileName) ? 'mods' : 'resourcepacks');
       const name = path.basename(f.fileName);
-      if (!f.downloadUrl) {
-        blocked.push({ title: m?.name || name, fileName: name, folder, url: curseforge.pageUrl(m) });
+      if (f.missing || !f.downloadUrl) {
+        blocked.push({ title: m?.name || name, fileName: name, folder, url: m ? curseforge.pageUrl(m) : `https://www.curseforge.com/projects/${f.modId}` });
       } else {
         const dest = insideDir(root, `${folder}/${name}`);
         await download(f.downloadUrl, dest);
