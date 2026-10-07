@@ -109,7 +109,7 @@ ipcMain.on('window:close', () => win?.close());
 
 handle('settings:get', () => ({ ...store.get(), accounts: undefined }));
 handle('settings:update', patch => {
-  const allowed = ['selectedVersion', 'showSnapshots', 'memoryMb', 'resolution', 'closeOnLaunch', 'jvmArgs', 'panelUrl'];
+  const allowed = ['selectedVersion', 'showSnapshots', 'memoryMb', 'resolution', 'closeOnLaunch', 'jvmArgs', 'panelUrl', 'theme', 'animations', 'intro'];
   const clean = Object.fromEntries(Object.entries(patch || {}).filter(([k]) => allowed.includes(k)));
   const s = store.update(clean);
   return { ...s, accounts: undefined };
