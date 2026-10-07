@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('km', {
   ping: address => call('server:ping', address),
   openFolder: which => call('folder:open', which),
   launch: target => call('game:launch', target),
+  stop: () => call('game:stop'),
   installUpdate: () => call('update:install'),
   on: {
     progress: cb => on('launch:progress', cb),

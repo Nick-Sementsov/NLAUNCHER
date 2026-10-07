@@ -34,7 +34,7 @@
   <div class="intro-glow"></div>
   <svg class="intro-crest"><use href="#crest"/></svg>
   <div class="intro-title">KM Launcher</div>
-  <div class="intro-sub">Врата королевства открываются…</div>
+  <div class="intro-sub">Загрузка…</div>
   <div class="portcullis"></div>
 </div>
 
@@ -54,15 +54,15 @@
   <!-- Боковое меню: геральдические знамёна -->
   <nav class="sidebar">
     <button class="banner active" data-page="home">
-      <svg class="b-ico" viewBox="0 0 24 24"><path d="M3 21V10l2-2 2 2v3h2V6l3-4 3 4v7h2v-3l2-2 2 2v11h-7v-4a2 2 0 0 0-4 0v4z"/></svg><span>Замок</span></button>
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M3 21V10l2-2 2 2v3h2V6l3-4 3 4v7h2v-3l2-2 2 2v11h-7v-4a2 2 0 0 0-4 0v4z"/></svg><span>Главная</span></button>
     <button class="banner" data-page="versions">
-      <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 3l9 9-2 2-9-9V3zm16 0v2l-6 6-2-2 6-6zM6 15l3 3-2 2-1-1-2 2-1-1 2-2-1-1zm12 0l2 2-1 1 2 2-1 1-2-2-1 1-2-2z"/></svg><span>Арсенал</span></button>
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 3l9 9-2 2-9-9V3zm16 0v2l-6 6-2-2 6-6zM6 15l3 3-2 2-1-1-2 2-1-1 2-2-1-1zm12 0l2 2-1 1 2 2-1 1-2-2-1 1-2-2z"/></svg><span>Версии</span></button>
     <button class="banner" data-page="accounts">
-      <svg class="b-ico" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/></svg><span>Рыцари</span></button>
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/></svg><span>Аккаунты</span></button>
     <button class="banner" data-page="settings">
-      <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 9h11l2-3h4v4h-4l-2 1v2H9v-2L4 11zm5 6h6v2h2v3H7v-3h2z"/></svg><span>Кузница</span></button>
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 9h11l2-3h4v4h-4l-2 1v2H9v-2L4 11zm5 6h6v2h2v3H7v-3h2z"/></svg><span>Настройки</span></button>
     <button class="banner" data-page="console">
-      <svg class="b-ico" viewBox="0 0 24 24"><path d="M6 3h11a3 3 0 0 1 3 3v1h-3v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-1h3V6a3 3 0 0 1 1-3zm3 5v2h6V8zm0 4v2h6v-2z"/></svg><span>Хроники</span></button>
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M6 3h11a3 3 0 0 1 3 3v1h-3v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-1h3V6a3 3 0 0 1 1-3zm3 5v2h6V8zm0 4v2h6v-2z"/></svg><span>Консоль</span></button>
     <div class="sb-foot">
       <svg class="sb-fleur"><use href="#fleur"/></svg>
       <div id="appVersion"></div>
@@ -89,6 +89,9 @@
             <pattern id="bricks" width="24" height="12" patternUnits="userSpaceOnUse">
               <path d="M0 12h24M0 6h24M12 0v6M0 6v6M24 6v6" stroke="#000" stroke-opacity=".18" stroke-width="1" fill="none"/>
             </pattern>
+            <linearGradient id="meteorTail" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
           </defs>
           <rect width="1200" height="340" fill="url(#sky)"/>
           <!-- звёзды -->
@@ -102,6 +105,9 @@
           <circle cx="1040" cy="78" r="80" fill="url(#moonGlow)"/>
           <circle cx="1040" cy="78" r="26" fill="#f7ecc6"/>
           <circle cx="1031" cy="70" r="5" fill="#e3d29a"/><circle cx="1050" cy="86" r="3.5" fill="#e3d29a"/>
+          <!-- падающие звёзды -->
+          <g class="meteor m1"><line x1="0" y1="0" x2="-70" y2="-26" stroke="url(#meteorTail)" stroke-width="2" stroke-linecap="round"/><circle r="1.8" fill="#fff"/></g>
+          <g class="meteor m2"><line x1="0" y1="0" x2="-55" y2="-20" stroke="url(#meteorTail)" stroke-width="1.6" stroke-linecap="round"/><circle r="1.5" fill="#fff"/></g>
           <!-- облака -->
           <g class="clouds" fill="#1a1d3c" opacity=".55">
             <ellipse cx="200" cy="110" rx="120" ry="14"/><ellipse cx="260" cy="100" rx="70" ry="12"/>
@@ -173,6 +179,17 @@
             <circle class="torch" cx="172" cy="214" r="22" fill="url(#torch)"/>
             <circle class="torch t2" cx="248" cy="214" r="22" fill="url(#torch)"/>
           </g>
+          <!-- летучие мыши над замком -->
+          <g class="bats" fill="#0b0c14">
+            <path class="bat b1" d="M0 0c4-5 8-5 10-1 2-4 6-4 10 1-4-1-7 0-10 3-3-3-6-4-10-3z"/>
+            <path class="bat b2" d="M0 0c4-5 8-5 10-1 2-4 6-4 10 1-4-1-7 0-10 3-3-3-6-4-10-3z"/>
+            <path class="bat b3" d="M0 0c4-5 8-5 10-1 2-4 6-4 10 1-4-1-7 0-10 3-3-3-6-4-10-3z"/>
+          </g>
+          <!-- туман у подножия -->
+          <g class="fog" fill="#9aa3c7">
+            <ellipse cx="300" cy="300" rx="260" ry="16" opacity=".08"/><ellipse cx="900" cy="310" rx="300" ry="18" opacity=".07"/>
+            <ellipse cx="620" cy="318" rx="220" ry="12" opacity=".06"/>
+          </g>
           <!-- дорога -->
           <path d="M770 340 L790 304 L830 304 L860 340Z" fill="#2a2420" opacity=".8"/>
           <!-- искры от факелов -->
@@ -184,14 +201,14 @@
         <div class="hero-text">
           <div class="hero-kicker">Anno Domini MMXXVI</div>
           <h1>Королевство KM</h1>
-          <p>Да хранит тебя Господь в походе, странник</p>
+          <p>Выбери версию и жми «Играть»</p>
         </div>
       </div>
 
       <div class="home-grid">
         <article class="parchment news">
-          <h2 class="ribbon">Королевские вести</h2>
-          <div id="newsList" class="news-list"><p class="muted">Гонец в пути…</p></div>
+          <h2 class="ribbon">Новости</h2>
+          <div id="newsList" class="news-list"><p class="muted">Загружаем новости…</p></div>
         </article>
 
         <aside class="home-side">
@@ -202,8 +219,8 @@
             <button class="btn btn-gold" id="btnJoinServer" disabled>Войти на сервер</button>
           </div>
           <div class="plaque">
-            <h3>Путь рыцаря</h3>
-            <div class="mini-row"><span>Рыцарь</span><b id="sideAccount">—</b></div>
+            <h3>Профиль</h3>
+            <div class="mini-row"><span>Игрок</span><b id="sideAccount">—</b></div>
             <div class="mini-row"><span>Версия</span><b id="sideVersion">—</b></div>
             <div class="mini-row"><span>Память</span><b id="sideMemory">—</b></div>
             <button class="btn btn-iron" data-open="root">Открыть папку игры</button>
@@ -215,7 +232,7 @@
     <!-- АРСЕНАЛ -->
     <section class="page" id="page-versions">
       <div class="page-head">
-        <h2 class="ribbon">Арсенал версий</h2>
+        <h2 class="ribbon">Версии</h2>
         <div class="tabs" id="versionTabs">
           <button class="tab active" data-kind="vanilla">Ванилла</button>
           <button class="tab" data-kind="fabric">Fabric</button>
@@ -231,11 +248,11 @@
 
     <!-- РЫЦАРИ -->
     <section class="page" id="page-accounts">
-      <div class="page-head"><h2 class="ribbon">Рыцарский орден</h2></div>
+      <div class="page-head"><h2 class="ribbon">Аккаунты</h2></div>
       <div class="accounts-layout">
         <div class="account-list" id="accountList"></div>
         <div class="parchment add-account">
-          <h3>Посвятить в рыцари</h3>
+          <h3>Добавить аккаунт</h3>
           <button class="btn btn-ms" id="btnAddMs">
             <svg viewBox="0 0 21 21" width="18" height="18" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
             Войти через Microsoft
@@ -253,7 +270,7 @@
 
     <!-- КУЗНИЦА -->
     <section class="page" id="page-settings">
-      <div class="page-head"><h2 class="ribbon">Кузница</h2></div>
+      <div class="page-head"><h2 class="ribbon">Настройки</h2></div>
       <div class="settings-grid">
         <div class="parchment">
           <h3>Память для игры</h3>
@@ -273,14 +290,14 @@
           <label class="check dark"><input type="checkbox" id="chkClose"><span>Скрывать лаунчер во время игры</span></label>
         </div>
         <div class="parchment">
-          <h3>Для мастеров</h3>
+          <h3>Дополнительно</h3>
           <label class="lbl">Аргументы Java</label>
           <input class="field" id="jvmArgs" placeholder="-XX:+UseG1GC">
           <label class="lbl">Адрес панели сервера</label>
           <input class="field" id="panelUrl" placeholder="https://…">
         </div>
         <div class="parchment">
-          <h3>Сокровищница</h3>
+          <h3>Папки</h3>
           <div class="folder-btns">
             <button class="btn btn-iron" data-open="root">Папка лаунчера</button>
             <button class="btn btn-iron" data-open="instances">Миры и моды</button>
@@ -294,7 +311,7 @@
     <!-- ХРОНИКИ -->
     <section class="page" id="page-console">
       <div class="page-head">
-        <h2 class="ribbon">Хроники</h2>
+        <h2 class="ribbon">Консоль</h2>
         <div class="console-actions">
           <button class="btn btn-iron" id="btnCopyLog">Копировать</button>
           <button class="btn btn-iron" id="btnClearLog">Очистить</button>
@@ -308,15 +325,15 @@
 
 <!-- Нижняя панель запуска -->
 <footer class="playbar">
-  <button class="pb-account" id="pbAccount" title="Сменить рыцаря">
+  <button class="pb-account" id="pbAccount" title="Сменить аккаунт">
     <img id="pbAvatar" alt="" src="data:,">
-    <div><small>Рыцарь</small><b id="pbName">Нет аккаунта</b></div>
+    <div><small>Игрок</small><b id="pbName">Нет аккаунта</b></div>
   </button>
   <button class="pb-version" id="pbVersion" title="Выбрать версию">
     <small>Версия</small><b id="pbVersionName">—</b>
   </button>
   <div class="pb-progress" id="progressBox">
-    <div class="pb-stage" id="progressStage">Готов к турниру</div>
+    <div class="pb-stage" id="progressStage">Готов к игре</div>
     <div class="bar"><div class="bar-fill" id="progressFill"></div></div>
   </div>
   <button class="play" id="btnPlay">

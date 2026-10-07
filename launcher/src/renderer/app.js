@@ -99,7 +99,7 @@ function currentAccount() {
 function renderAccounts() {
   const list = $('#accountList');
   if (!state.accounts.length) {
-    list.innerHTML = '<p class="empty">В рыцарском ордене пока никого. Войди через Microsoft или добавь ник справа.</p>';
+    list.innerHTML = '<p class="empty">Аккаунтов пока нет. Войди через Microsoft или добавь ник справа.</p>';
   } else {
     list.innerHTML = '';
     for (const a of state.accounts) {
@@ -118,9 +118,9 @@ function renderAccounts() {
         applyAccounts(await api(km.accounts.select(a.id)));
       });
       el.querySelector('[data-act="remove"]').addEventListener('click', () => {
-        modal('Изгнать рыцаря из ордена?', `<p>Аккаунт <b>${esc(a.name)}</b> будет удалён из лаунчера.</p>`, [
+        modal('Удалить аккаунт?', `<p>Аккаунт <b>${esc(a.name)}</b> будет удалён из лаунчера.</p>`, [
           { label: 'Отмена', cls: 'btn-iron' },
-          { label: 'Изгнать', cls: 'btn-red', onClick: async () => applyAccounts(await api(km.accounts.remove(a.id))) },
+          { label: 'Удалить', cls: 'btn-red', onClick: async () => applyAccounts(await api(km.accounts.remove(a.id))) },
         ]);
       });
       list.appendChild(el);
@@ -158,7 +158,7 @@ $('#offlineForm').onsubmit = async e => {
     const acc = await api(km.accounts.addOffline($('#offlineName').value));
     $('#offlineName').value = '';
     applyAccounts(await api(km.accounts.list()));
-    toast(`${acc.name} посвящён в рыцари`);
+    toast(`${acc.name} добавлен`);
   } catch (err) {
     toast(err.message, 'error');
   }
@@ -178,7 +178,7 @@ function selectVersion(sel) {
   state.settings.selectedVersion = sel;
   api(km.settings.update({ selectedVersion: sel })).catch(() => {});
   updateVersionLabels();
-  renderVersions();
+  renderVersions(true);
 }
 
 function updateVersionLabels() {
@@ -187,7 +187,7 @@ function updateVersionLabels() {
   $('#sideVersion').textContent = label;
 }
 
-function renderVersions() {
+function renderVersions(quiet = false) {
   const grid = $('#versionGrid');
   const q = $('#versionSearch').value.trim().toLowerCase();
   const sel = state.settings.selectedVersion;
@@ -219,19 +219,22 @@ function renderVersions() {
 
   if (!cards.length) {
     grid.innerHTML = `<p class="empty">${state.kind === 'server'
-      ? 'Панель сервера не прислала сборок. Проверь адрес панели в Кузнице.'
-      : state.versions ? 'Ничего не нашлось.' : 'Свитки с версиями ещё не доставлены…'}</p>`;
+      ? 'Панель сервера не прислала сборок. Проверь адрес панели в настройках.'
+      : state.versions ? 'Ничего не нашлось.' : 'Загружаем список версий…'}</p>`;
     return;
   }
   const frag = document.createDocumentFragment();
-  for (const c of cards.slice(0, 300)) {
+  cards.slice(0, 300).forEach((c, i) => {
     const el = document.createElement('button');
+    el.style.setProperty('--i', i);
+    if (quiet) el.style.animation = 'none';
     const isSel = sel && sel.kind === c.sel.kind && sel.id === c.sel.id;
     el.className = 'vcard' + (isSel ? ' selected' : '');
     el.innerHTML = `${c.badge || ''}<b>${esc(c.title)}</b><small>${esc(c.sub)}</small>${c.desc ? `<p>${esc(c.desc)}</p>` : ''}`;
     el.onclick = () => selectVersion(c.sel);
+    if (quiet && isSel) el.classList.add('pop');
     frag.appendChild(el);
-  }
+  });
   grid.appendChild(frag);
 }
 
@@ -276,7 +279,7 @@ async function loadPanel() {
   const list = $('#newsList');
   try {
     const news = await api(km.panel.news());
-    if (!news.length) { list.innerHTML = '<p class="muted">Глашатай молчит: новостей нет.</p>'; return; }
+    if (!news.length) { list.innerHTML = '<p class="muted">Новостей пока нет.</p>'; return; }
     list.innerHTML = news.map(n => `
       <div class="news-item">
         <h4>${esc(n.title)}</h4>
@@ -284,7 +287,7 @@ async function loadPanel() {
         <p>${esc(n.body)}</p>
       </div>`).join('');
   } catch {
-    list.innerHTML = '<p class="muted">Гонец не добрался до замка: новости недоступны.</p>';
+    list.innerHTML = '<p class="muted">Не удалось загрузить новости.</p>';
   }
 }
 
@@ -307,7 +310,7 @@ async function pingServer() {
     btn.disabled = false;
   } catch {
     st.className = 'srv-status offline';
-    st.lastElementChild.textContent = 'Сервер спит';
+    st.lastElementChild.textContent = 'Сервер недоступен';
     $('#srvMotd').textContent = ip;
     btn.disabled = false;
   }
@@ -380,7 +383,7 @@ function appendLog(text) {
     if (atBottom) consoleEl.scrollTop = consoleEl.scrollHeight;
   });
 }
-$('#btnCopyLog').onclick = () => { navigator.clipboard.writeText(consoleEl.textContent); toast('Хроники скопированы'); };
+$('#btnCopyLog').onclick = () => { navigator.clipboard.writeText(consoleEl.textContent); toast('Скопировано'); };
 $('#btnClearLog').onclick = () => { consoleEl.textContent = ''; };
 
 // ── Запуск ──────────────────────────────────────────────────────
@@ -393,47 +396,56 @@ function setBusy(busy, label) {
   const btn = $('#btnPlay');
   btn.disabled = busy;
   btn.classList.toggle('busy', busy);
-  btn.querySelector('span').textContent = label || (busy ? 'В пути…' : 'Играть');
+  btn.querySelector('span').textContent = label || (busy ? 'Запуск…' : 'Играть');
 }
 
 async function play(target) {
   if (state.launching || state.playing) return;
-  if (!currentAccount()) { go('accounts'); return toast('Сначала посвяти рыцаря в орден', 'error'); }
-  if (!target) { go('versions'); return toast('Выбери версию в арсенале', 'error'); }
+  if (!currentAccount()) { go('accounts'); return toast('Сначала добавь аккаунт', 'error'); }
+  if (!target) { go('versions'); return toast('Выбери версию', 'error'); }
   state.launching = true;
   setBusy(true);
-  setProgress('Готовимся к походу…', 0);
+  setProgress('Подготовка…', 0);
   appendLog(`\n=== Запуск ${versionLabel(target)} (${new Date().toLocaleTimeString('ru-RU')}) ===\n`);
   try {
     await api(km.launch(target));
   } catch (e) {
     state.launching = false;
     setBusy(false);
-    setProgress('Поход сорвался', 0);
+    setProgress('Запуск не удался', 0);
     modal('Не удалось запустить', `<p>${esc(e.message)}</p>`);
   }
 }
 
-$('#btnPlay').onclick = () => play(state.settings.selectedVersion);
+$('#btnPlay').onclick = () => {
+  if (!state.playing) return play(state.settings.selectedVersion);
+  modal('Закрыть игру?', '<p>Игра будет принудительно закрыта. Несохранённый прогресс может пропасть.</p>', [
+    { label: 'Отмена', cls: 'btn-iron' },
+    { label: 'Закрыть игру', cls: 'btn-red', onClick: () => api(km.stop()).catch(e => toast(e.message, 'error')) },
+  ]);
+};
 
 km.on.progress(p => {
   setProgress(p.stage, p.percent);
   if (p.started) {
     state.launching = false;
     state.playing = true;
-    setBusy(true, 'В игре');
+    setBusy(true, 'Закрыть игру');
+    $('#btnPlay').disabled = false;
+    $('#btnPlay').classList.add('playing');
   }
 });
 km.on.log(appendLog);
 km.on.exit(info => {
   state.launching = false;
   state.playing = false;
+  $('#btnPlay').classList.remove('playing');
   setBusy(false);
-  setProgress(info.crashed ? 'Игра пала в бою' : 'Готов к турниру', info.crashed ? 0 : 100);
+  setProgress(info.crashed ? 'Игра вылетела' : 'Готов к игре', info.crashed ? 0 : 100);
   if (info.crashed) {
     modal('Игра завершилась с ошибкой',
-      `<p>Код выхода: ${esc(info.code)}. Последние строки хроник:</p><pre>${esc(info.tail || 'нет вывода')}</pre>`,
-      [{ label: 'Открыть хроники', cls: 'btn-iron', onClick: () => go('console') }, { label: 'Закрыть' }]);
+      `<p>Код выхода: ${esc(info.code)}. Последние строки консоли:</p><pre>${esc(info.tail || 'нет вывода')}</pre>`,
+      [{ label: 'Открыть консоль', cls: 'btn-iron', onClick: () => go('console') }, { label: 'Закрыть' }]);
   }
 });
 
@@ -455,6 +467,19 @@ km.on.update(u => {
   const done = () => intro.remove();
   intro.addEventListener('click', () => { intro.classList.add('skip'); setTimeout(done, 320); });
   setTimeout(done, 3100);
+})();
+
+// ── Искры над нижней панелью ─────────────────────────────────────
+(() => {
+  const bar = $('.playbar');
+  for (let i = 0; i < 7; i++) {
+    const sp = document.createElement('i');
+    sp.className = 'spark';
+    sp.style.left = (8 + Math.random() * 84) + '%';
+    sp.style.animationDelay = (Math.random() * 4).toFixed(2) + 's';
+    sp.style.animationDuration = (3 + Math.random() * 2.5).toFixed(2) + 's';
+    bar.appendChild(sp);
+  }
 })();
 
 // ── Старт ───────────────────────────────────────────────────────

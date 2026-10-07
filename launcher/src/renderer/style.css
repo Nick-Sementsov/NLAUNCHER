@@ -137,10 +137,11 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 /* ── Каркас ──────────────────────────────────────────────────── */
 .shell { flex: 1; display: flex; min-height: 0; padding-top: 8px; }
 .pages { flex: 1; overflow-y: auto; position: relative; }
-.page { display: none; padding: 22px 28px 28px; animation: rise .3s ease; }
+.page { display: none; padding: 22px 28px 28px; animation: pageIn .45s cubic-bezier(.2,.8,.2,1); }
 .page.active { display: block; }
 #page-home { padding: 0 0 28px; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pageIn { from { opacity: 0; transform: translateX(18px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
 
 /* ── Боковое меню: геральдические знамёна ─────────────────────── */
 .sidebar {
@@ -468,4 +469,106 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 @media (max-width: 1100px) {
   .home-grid, .accounts-layout { grid-template-columns: 1fr; }
+}
+
+/* ══ Анимации ═════════════════════════════════════════════════ */
+/* ленты-заголовки разворачиваются */
+.page.active .ribbon { animation: unfurl .55s cubic-bezier(.2,.8,.2,1) both; transform-origin: left center; }
+@keyframes unfurl { from { transform: scaleX(0); opacity: 0; } 60% { opacity: 1; } to { transform: scaleX(1); } }
+
+/* блоки страниц появляются по очереди */
+.page.active .plaque, .page.active .parchment, .page.active .acc {
+  animation: cardIn .5s cubic-bezier(.2,.8,.2,1) both;
+}
+.page.active .plaque:nth-child(2), .page.active .parchment:nth-child(2), .page.active .acc:nth-child(2) { animation-delay: .08s; }
+.page.active .plaque:nth-child(3), .page.active .parchment:nth-child(3), .page.active .acc:nth-child(3) { animation-delay: .16s; }
+.page.active .parchment:nth-child(4), .page.active .acc:nth-child(4) { animation-delay: .24s; }
+
+/* карточки версий выезжают волной */
+.page.active .vcard { animation: cardIn .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(min(var(--i, 0), 24) * 22ms); }
+@keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+
+/* золотой блик по карточке при наведении */
+.vcard { overflow: hidden; }
+.vcard::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(242,210,124,.18), transparent);
+  transform: skewX(-20deg); pointer-events: none; opacity: 0;
+}
+.vcard:hover::after { animation: shine .8s ease forwards; }
+.vcard.pop { animation: selectPop .35s ease !important; }
+@keyframes shine { from { left: -60%; opacity: 1; } to { left: 130%; opacity: 1; } }
+@keyframes selectPop { 40% { transform: scale(1.04); } }
+
+/* знамёна в меню: при наведении опускаются, значок подпрыгивает */
+.banner .b-ico { transition: transform .25s cubic-bezier(.3,1.6,.5,1); }
+.banner:hover .b-ico { transform: scale(1.2) rotate(-8deg); }
+.banner.active .b-ico { animation: icoBounce .5s cubic-bezier(.3,1.6,.5,1); }
+@keyframes icoBounce { 0% { transform: scale(.6); } 100% { transform: none; } }
+.sb-fleur { animation: fleurGlow 4s ease-in-out infinite; }
+@keyframes fleurGlow { 0%,100% { fill: #3a4054; } 50% { fill: #6b5a32; filter: drop-shadow(0 0 6px rgba(212,168,75,.5)); } }
+
+/* сцена: падающие звёзды, летучие мыши, туман, медленное «дыхание» неба */
+.meteor { opacity: 0; }
+.m1 { animation: meteor 9s linear 2s infinite; }
+.m2 { animation: meteor2 13s linear 6s infinite; }
+@keyframes meteor { 0% { transform: translate(300px, 10px); opacity: 0; } 2% { opacity: 1; } 9% { transform: translate(520px, 92px); opacity: 0; } 100% { transform: translate(520px, 92px); opacity: 0; } }
+@keyframes meteor2 { 0% { transform: translate(820px, 20px); opacity: 0; } 2% { opacity: 1; } 8% { transform: translate(980px, 80px); opacity: 0; } 100% { transform: translate(980px, 80px); opacity: 0; } }
+.bat { transform-box: fill-box; transform-origin: center; }
+.b1 { animation: batFly 14s linear infinite, flap .25s ease-in-out infinite alternate; }
+.b2 { animation: batFly2 18s linear 3s infinite, flap .22s ease-in-out infinite alternate; }
+.b3 { animation: batFly 16s linear 8s infinite, flap .28s ease-in-out infinite alternate; }
+@keyframes batFly { 0% { translate: 560px 150px; } 25% { translate: 700px 90px; } 50% { translate: 860px 130px; } 75% { translate: 720px 170px; } 100% { translate: 560px 150px; } }
+@keyframes batFly2 { 0% { translate: 900px 100px; } 33% { translate: 640px 70px; } 66% { translate: 780px 160px; } 100% { translate: 900px 100px; } }
+@keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(-.5); } }
+.fog { animation: fog 22s ease-in-out infinite alternate; }
+@keyframes fog { from { transform: translateX(-50px); opacity: .7; } to { transform: translateX(50px); opacity: 1; } }
+.hero-scene { animation: heroZoom 30s ease-in-out infinite alternate; transform-origin: 60% 60%; }
+@keyframes heroZoom { from { transform: scale(1); } to { transform: scale(1.04); } }
+.hero-text h1 { animation: fadeUp .8s ease .1s both; }
+.hero-text p, .hero-kicker { animation: fadeUp .8s ease .3s both; }
+
+/* кнопка «Играть»: дышит светом и ловит блик */
+.play { position: relative; overflow: hidden; }
+.play:not(:disabled):not(.playing) { animation: playPulse 2.6s ease-in-out infinite; }
+.play::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
+  transform: skewX(-20deg); animation: playShine 4.5s ease-in-out infinite;
+}
+.play svg { transition: transform .3s cubic-bezier(.3,1.6,.5,1); }
+.play:hover:not(:disabled) svg { transform: rotate(-25deg) scale(1.15); }
+.play.playing { background: linear-gradient(180deg, #c0392b, var(--gules) 55%, #4d0f0f); animation: playingGlow 1.6s ease-in-out infinite; font-size: 22px; }
+.play.busy:not(.playing)::after { animation-duration: 1.2s; }
+@keyframes playPulse { 0%,100% { box-shadow: inset 0 0 0 2px #0f1a3a, 0 0 0 2px #2a1606, 0 6px 18px rgba(0,0,0,.6), 0 0 18px rgba(58,95,174,.3); } 50% { box-shadow: inset 0 0 0 2px #0f1a3a, 0 0 0 2px #2a1606, 0 6px 18px rgba(0,0,0,.6), 0 0 36px rgba(242,210,124,.5); } }
+@keyframes playingGlow { 0%,100% { box-shadow: 0 0 0 2px #2a1606, 0 0 14px rgba(181,48,42,.4); } 50% { box-shadow: 0 0 0 2px #2a1606, 0 0 30px rgba(181,48,42,.8); } }
+@keyframes playShine { 0%, 60% { left: -40%; } 100% { left: 130%; } }
+
+/* полоса загрузки: бегущие блики */
+.bar-fill { position: relative; overflow: hidden; }
+.bar-fill::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(-45deg, rgba(255,255,255,.22) 0 8px, transparent 8px 16px);
+  background-size: 22px 22px; animation: stripes .6s linear infinite;
+}
+@keyframes stripes { to { background-position: 22px 0; } }
+
+/* аватар игрока покачивается при наведении */
+.pb-account:hover img { animation: bob .6s ease-in-out infinite alternate; }
+@keyframes bob { to { transform: translateY(-3px) rotate(-3deg); } }
+
+/* окна и уведомления */
+.modal { animation: fadeIn .2s ease; }
+.modal-box { animation: modalIn .35s cubic-bezier(.2,1.3,.4,1); }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes modalIn { from { opacity: 0; transform: scale(.85) translateY(20px); } }
+.toast { animation: toastIn .4s cubic-bezier(.2,1.3,.4,1); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(60px); } }
+
+/* искры, летящие над нижней панелью */
+.playbar .spark { position: absolute; bottom: 80px; width: 3px; height: 3px; border-radius: 50%; background: #ffb347; box-shadow: 0 0 6px #ff9b2f; pointer-events: none; animation: sparkUp 4s linear infinite; opacity: 0; }
+@keyframes sparkUp { 0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: .9; } 100% { transform: translate(14px, -140px); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
