@@ -45,6 +45,39 @@ Client.prototype.startMinecraft = function (launchArguments) {
   return mc;
 };
 
+// В старых версиях (1.5.2 и др.) один и тот же архив нативных библиотек указан дважды:
+// MCLC качает и распаковывает его параллельно, второй поток не находит файл и запуск падает.
+// Та же логика, что в MCLC, но без дублей и последовательно.
+Handler.prototype.getNatives = async function () {
+  const Zip = require('adm-zip');
+  const nativeDirectory = path.resolve(this.options.overrides.natives || path.join(this.options.root, 'natives', this.version.id));
+  if (parseInt(this.version.id.split('.')[1]) >= 19) return this.options.overrides.cwd || this.options.root;
+  if (fs.existsSync(nativeDirectory) && fs.readdirSync(nativeDirectory).length) return nativeDirectory;
+  fs.mkdirSync(nativeDirectory, { recursive: true });
+
+  const seen = new Set();
+  const list = [];
+  for (const lib of this.version.libraries) {
+    if (!lib.downloads || !lib.downloads.classifiers || this.parseRule(lib)) continue;
+    const c = lib.downloads.classifiers;
+    const native = this.getOS() === 'osx' ? c['natives-osx'] || c['natives-macos'] : c[`natives-${this.getOS()}`];
+    if (native && !seen.has(native.path)) { seen.add(native.path); list.push(native); }
+  }
+  this.client.emit('progress', { type: 'natives', task: 0, total: list.length });
+  let done = 0;
+  for (const native of list) {
+    const name = native.path.split('/').pop();
+    const file = path.join(nativeDirectory, name);
+    await this.downloadAsync(native.url, nativeDirectory, name, true, 'natives');
+    if (!await this.checkSum(native.sha1, file)) await this.downloadAsync(native.url, nativeDirectory, name, true, 'natives');
+    try { new Zip(file).extractAllTo(nativeDirectory, true); } catch (e) { this.client.emit('debug', `[MCLC]: natives ${name}: ${e.message}`); }
+    fs.rmSync(file, { force: true });
+    this.client.emit('progress', { type: 'natives', task: ++done, total: list.length });
+  }
+  this.client.emit('debug', '[MCLC]: Downloaded and extracted natives');
+  return nativeDirectory;
+};
+
 function cmp(a, b) {
   const pa = String(a).split(/[.-]/).map(n => parseInt(n, 10) || 0);
   const pb = String(b).split(/[.-]/).map(n => parseInt(n, 10) || 0);

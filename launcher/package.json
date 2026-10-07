@@ -1,7 +1,7 @@
 {
   "name": "km-launcher",
   "productName": "KM Launcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "KM Launcher — лаунчер Minecraft",
   "author": "KM",
   "license": "UNLICENSED",
@@ -10,7 +10,8 @@
     "start": "electron .",
     "check": "node scripts/check.js",
     "dist:win": "electron-builder --win nsis --x64",
-    "dist:dir": "electron-builder --dir"
+    "dist:dir": "electron-builder --dir",
+    "art": "electron scripts/art/render.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
@@ -19,9 +20,9 @@
     "msmc": "^5.0.5"
   },
   "devDependencies": {
-    "@fontsource/cormorant-sc": "^5.3.0",
-    "@fontsource/kurale": "^5.3.0",
-    "@fontsource/ruslan-display": "^5.3.0",
+    "@fontsource/alice": "^5.3.0",
+    "@fontsource/cormorant-unicase": "^5.3.0",
+    "@fontsource/grenze-gotisch": "^5.3.0",
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12"
   },
@@ -61,8 +62,15 @@
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "language": "1049",
-      "multiLanguageInstaller": false,
-      "deleteAppDataOnUninstall": false
+      "multiLanguageInstaller": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerLanguages": [
+        "ru_RU"
+      ]
     },
     "linux": {
       "target": [

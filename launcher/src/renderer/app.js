@@ -99,7 +99,7 @@ function currentAccount() {
 function renderAccounts() {
   const list = $('#accountList');
   if (!state.accounts.length) {
-    list.innerHTML = '<p class="empty">В дружине пока никого. Войди через Microsoft или добавь ник справа.</p>';
+    list.innerHTML = '<p class="empty">В рыцарском ордене пока никого. Войди через Microsoft или добавь ник справа.</p>';
   } else {
     list.innerHTML = '';
     for (const a of state.accounts) {
@@ -118,7 +118,7 @@ function renderAccounts() {
         applyAccounts(await api(km.accounts.select(a.id)));
       });
       el.querySelector('[data-act="remove"]').addEventListener('click', () => {
-        modal('Изгнать воина?', `<p>Аккаунт <b>${esc(a.name)}</b> будет удалён из лаунчера.</p>`, [
+        modal('Изгнать рыцаря из ордена?', `<p>Аккаунт <b>${esc(a.name)}</b> будет удалён из лаунчера.</p>`, [
           { label: 'Отмена', cls: 'btn-iron' },
           { label: 'Изгнать', cls: 'btn-red', onClick: async () => applyAccounts(await api(km.accounts.remove(a.id))) },
         ]);
@@ -158,7 +158,7 @@ $('#offlineForm').onsubmit = async e => {
     const acc = await api(km.accounts.addOffline($('#offlineName').value));
     $('#offlineName').value = '';
     applyAccounts(await api(km.accounts.list()));
-    toast(`${acc.name} вступил в дружину`);
+    toast(`${acc.name} посвящён в рыцари`);
   } catch (err) {
     toast(err.message, 'error');
   }
@@ -380,7 +380,7 @@ function appendLog(text) {
     if (atBottom) consoleEl.scrollTop = consoleEl.scrollHeight;
   });
 }
-$('#btnCopyLog').onclick = () => { navigator.clipboard.writeText(consoleEl.textContent); toast('Летопись скопирована'); };
+$('#btnCopyLog').onclick = () => { navigator.clipboard.writeText(consoleEl.textContent); toast('Хроники скопированы'); };
 $('#btnClearLog').onclick = () => { consoleEl.textContent = ''; };
 
 // ── Запуск ──────────────────────────────────────────────────────
@@ -398,7 +398,7 @@ function setBusy(busy, label) {
 
 async function play(target) {
   if (state.launching || state.playing) return;
-  if (!currentAccount()) { go('accounts'); return toast('Сначала добавь воина в дружину', 'error'); }
+  if (!currentAccount()) { go('accounts'); return toast('Сначала посвяти рыцаря в орден', 'error'); }
   if (!target) { go('versions'); return toast('Выбери версию в арсенале', 'error'); }
   state.launching = true;
   setBusy(true);
@@ -429,11 +429,11 @@ km.on.exit(info => {
   state.launching = false;
   state.playing = false;
   setBusy(false);
-  setProgress(info.crashed ? 'Игра пала в бою' : 'Готов к битве', info.crashed ? 0 : 100);
+  setProgress(info.crashed ? 'Игра пала в бою' : 'Готов к турниру', info.crashed ? 0 : 100);
   if (info.crashed) {
     modal('Игра завершилась с ошибкой',
-      `<p>Код выхода: ${esc(info.code)}. Последние строки летописи:</p><pre>${esc(info.tail || 'нет вывода')}</pre>`,
-      [{ label: 'Открыть летопись', cls: 'btn-iron', onClick: () => go('console') }, { label: 'Закрыть' }]);
+      `<p>Код выхода: ${esc(info.code)}. Последние строки хроник:</p><pre>${esc(info.tail || 'нет вывода')}</pre>`,
+      [{ label: 'Открыть хроники', cls: 'btn-iron', onClick: () => go('console') }, { label: 'Закрыть' }]);
   }
 });
 
@@ -447,6 +447,15 @@ km.on.update(u => {
     el.textContent = `Скачиваем обновление ${u.version}…`;
   }
 });
+
+// ── Заставка: врата открываются, клик пропускает ─────────────────
+(() => {
+  const intro = $('#intro');
+  if (!intro) return;
+  const done = () => intro.remove();
+  intro.addEventListener('click', () => { intro.classList.add('skip'); setTimeout(done, 320); });
+  setTimeout(done, 3100);
+})();
 
 // ── Старт ───────────────────────────────────────────────────────
 (async function init() {

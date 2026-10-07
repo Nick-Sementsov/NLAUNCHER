@@ -44,13 +44,14 @@ function createWindow() {
   if (process.env.KM_SCREENSHOT) {
     // служебный режим: снимок интерфейса для проверки сборки
     const [file, page] = process.env.KM_SCREENSHOT.split('#');
+    const early = page === 'intro';
     win.webContents.once('did-finish-load', () => setTimeout(async () => {
-      if (page) await win.webContents.executeJavaScript(`document.querySelector('[data-page="${page}"]').click()`);
+      if (page && !early) await win.webContents.executeJavaScript(`document.querySelector('[data-page="${page}"]').click()`);
       setTimeout(async () => {
         require('fs').writeFileSync(file, (await win.webContents.capturePage()).toPNG());
         app.exit(0);
-      }, 800);
-    }, 3500));
+      }, early ? 0 : 800);
+    }, early ? 1400 : 3500));
   }
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   // внешние ссылки открываем в браузере
