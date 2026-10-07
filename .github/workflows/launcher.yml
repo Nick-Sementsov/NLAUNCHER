@@ -4,9 +4,9 @@ on:
   push:
     branches: [main, 'claude/**']
     tags: ['v*']
-    paths: ['launcher/**', '.github/workflows/launcher.yml']
+    paths: ['launcher/**', '.github/workflows/launcher.yml', '.github/release-notes.md']
   pull_request:
-    paths: ['launcher/**', '.github/workflows/launcher.yml']
+    paths: ['launcher/**', '.github/workflows/launcher.yml', '.github/release-notes.md']
   workflow_dispatch:
 
 permissions:
