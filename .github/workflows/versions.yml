@@ -1,0 +1,37 @@
+name: Проверка версий
+
+# Широкий прогон запуска разных версий игры на Windows (без установщика)
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['launcher/src/core/**', 'launcher/scripts/smoke.js', '.github/workflows/versions.yml']
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: launcher
+
+jobs:
+  run:
+    name: ${{ matrix.kind }} ${{ matrix.version }}
+    runs-on: windows-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        kind: [vanilla]
+        version: [latest, '1.21.4', '1.20.6', '1.20.4', '1.19.4', '1.18.2', '1.17.1', '1.16.5', '1.15.2', '1.14.4', '1.13.2', '1.12.2', '1.10.2', '1.8.9', '1.7.10', '1.6.4', '1.5.2', '1.2.5']
+        include:
+          - { kind: fabric, version: latest }
+          - { kind: fabric, version: '1.20.1' }
+          - { kind: fabric, version: '1.16.5' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+      - run: npm ci
+      - run: node scripts/smoke.js ${{ matrix.kind }} ${{ matrix.version }}
