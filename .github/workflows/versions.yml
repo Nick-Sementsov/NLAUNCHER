@@ -21,11 +21,12 @@ jobs:
       max-parallel: 12
       matrix:
         kind: [vanilla]
-        version: [latest, '1.21.4', '1.20.6', '1.20.4', '1.19.4', '1.18.2', '1.17.1', '1.16.5', '1.15.2', '1.14.4', '1.13.2', '1.12.2', '1.10.2', '1.8.9', '1.7.10', '1.6.4', '1.5.2', '1.2.5']
+        version: [latest, '1.21.4', '1.20.6', '1.20.4', '1.19.4', '1.18.2', '1.17.1', '1.16.5', '1.15.2', '1.14.4', '1.13.2', '1.12.2', '1.11.2', '1.10.2', '1.9.4', '1.8.9', '1.7.10', '1.6.4', '1.5.2', '1.4.7', '1.2.5', '1.0', 'b1.7.3']
         include:
           - { kind: fabric, version: latest }
           - { kind: fabric, version: '1.20.1' }
           - { kind: fabric, version: '1.16.5' }
+          - { kind: fabric, version: '1.21.4' }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
