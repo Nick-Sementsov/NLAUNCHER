@@ -7,6 +7,7 @@ const AdmZip = require('adm-zip');
 const paths = require('./paths');
 const { download } = require('./net');
 const modrinth = require('./modrinth');
+const curseforge = require('./curseforge');
 
 const META = 'instance.json';
 const KINDS = { mods: 'mods', resourcepacks: 'resourcepacks', shaders: 'shaderpacks', saves: 'saves' };
@@ -55,6 +56,7 @@ function summary(id, meta) {
     icon: meta.icon || '', created: meta.created, lastPlayed: meta.lastPlayed || null,
     memoryMb: meta.memoryMb || 0, source: meta.source || null,
     mods: countFiles(path.join(d, 'mods'), /\.jar$/i),
+    blocked: (meta.blocked || []).filter(b => !fs.existsSync(path.join(d, b.folder, b.fileName))),
   };
 }
 
@@ -196,14 +198,48 @@ function addFiles(id, kind, files) {
   for (const f of files) fs.copyFileSync(f, path.join(d, path.basename(f)));
 }
 
-// ── Установка с Modrinth ─────────────────────────────────────────
+// ── Установка с Modrinth и CurseForge ─────────────────────────────────────────
 function sha1(file) {
   return crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex');
 }
 
-async function installProject(id, projectId, type, onProgress, seen = new Set()) {
+// Что и откуда качать: одинаковый вид для Modrinth и CurseForge
+async function resolveProject(source, projectId, meta, type, loader) {
+  const want = `${meta.mc}${loader && type === 'mod' ? ' ' + loader : ''}`;
+  if (source === 'curseforge') {
+    const [proj, list] = await Promise.all([
+      curseforge.project(projectId),
+      curseforge.files(projectId, { mc: meta.mc, loader, type }),
+    ]);
+    const f = list[0];
+    if (!f) throw new Error(`«${proj.name}» нет для ${want}`);
+    if (!f.downloadUrl) {
+      throw new Error(`Автор «${proj.name}» запретил скачивать его из лаунчеров. Скачай файл ${f.fileName} с сайта ${curseforge.pageUrl(proj)} и добавь кнопкой «Добавить файл».`);
+    }
+    return {
+      id: String(proj.id), title: proj.name, icon: proj.logo?.thumbnailUrl || '',
+      url: f.downloadUrl, fileName: f.fileName, sha1: curseforge.sha1Of(f), versionId: String(f.id), version: f.displayName,
+      deps: (f.dependencies || []).filter(d => d.relationType === 3).map(d => String(d.modId)),
+    };
+  }
+  const [proj, vers] = await Promise.all([
+    modrinth.project(projectId),
+    modrinth.versions(projectId, { mc: meta.mc, loader, type }),
+  ]);
+  const v = vers[0];
+  if (!v) throw new Error(`«${proj.title}» нет для ${want}`);
+  const file = modrinth.primaryFile(v);
+  return {
+    id: proj.id, title: proj.title, icon: proj.icon_url || '',
+    url: file.url, fileName: file.filename, sha1: file.hashes?.sha1, versionId: v.id, version: v.version_number,
+    deps: (v.dependencies || []).filter(d => d.dependency_type === 'required' && d.project_id).map(d => d.project_id),
+  };
+}
+
+async function installProject(id, projectId, type, onProgress, source = 'modrinth', seen = new Set()) {
   const meta = readMeta(id);
   if (!meta) throw new Error('Сборка не найдена');
+  projectId = String(projectId);
   if (seen.has(projectId)) return;
   seen.add(projectId);
   const folder = TYPE_DIR[type];
@@ -211,37 +247,32 @@ async function installProject(id, projectId, type, onProgress, seen = new Set())
   const loader = meta.loader === 'vanilla' ? null : meta.loader;
   if (type === 'mod' && !loader) throw new Error('В ванильную сборку нельзя ставить моды: создай сборку с Fabric, Quilt или Forge');
 
-  const [proj, vers] = await Promise.all([
-    modrinth.project(projectId),
-    modrinth.versions(projectId, { mc: meta.mc, loader, type }),
-  ]);
-  const v = vers[0];
-  if (!v) throw new Error(`«${proj.title}» нет для ${meta.mc}${loader && type === 'mod' ? ' ' + loader : ''}`);
-  const file = modrinth.primaryFile(v);
+  const p = await resolveProject(source, projectId, meta, type, loader);
   // уже стоит этот проект: заменяем старый файл
   for (const [rel, info] of Object.entries(meta.files || {})) {
-    if (info.projectId === proj.id && rel.startsWith(folder + '/')) {
+    if (info.projectId === p.id && rel.startsWith(folder + '/')) {
       for (const f of [rel, rel + '.disabled']) fs.rmSync(path.join(dir(id), f), { force: true });
       delete meta.files[rel];
     }
   }
-  onProgress?.({ stage: `Скачиваем ${proj.title}`, percent: 0 });
-  const dest = path.join(dir(id), folder, path.basename(file.filename));
-  await download(file.url, dest, (d, t) => onProgress?.({ stage: `Скачиваем ${proj.title}`, percent: t ? Math.round(d / t * 100) : 0 }));
-  if (file.hashes?.sha1 && sha1(dest) !== file.hashes.sha1) { fs.rmSync(dest, { force: true }); throw new Error(`Файл ${file.filename} скачался с ошибкой`); }
+  onProgress?.({ stage: `Скачиваем ${p.title}`, percent: 0 });
+  const name = path.basename(p.fileName);
+  const dest = path.join(dir(id), folder, name);
+  await download(p.url, dest, (d, t) => onProgress?.({ stage: `Скачиваем ${p.title}`, percent: t ? Math.round(d / t * 100) : 0 }));
+  if (p.sha1 && sha1(dest) !== p.sha1) { fs.rmSync(dest, { force: true }); throw new Error(`Файл ${name} скачался с ошибкой`); }
   meta.files = meta.files || {};
-  meta.files[`${folder}/${path.basename(file.filename)}`] = { projectId: proj.id, versionId: v.id, title: proj.title, icon: proj.icon_url || '', version: v.version_number };
+  meta.files[`${folder}/${name}`] = { projectId: p.id, versionId: p.versionId, title: p.title, icon: p.icon, version: p.version, source };
   writeMeta(id, meta);
 
   // обязательные зависимости (например, Fabric API)
   if (type === 'mod') {
     const installed = new Set(Object.values(readMeta(id).files || {}).map(f => f.projectId));
-    for (const dep of v.dependencies || []) {
-      if (dep.dependency_type !== 'required' || !dep.project_id || installed.has(dep.project_id)) continue;
-      await installProject(id, dep.project_id, 'mod', onProgress, seen);
+    for (const dep of p.deps) {
+      if (installed.has(dep)) continue;
+      await installProject(id, dep, 'mod', onProgress, source, seen);
     }
   }
-  return { title: proj.title };
+  return { title: p.title };
 }
 
 // ── Готовые сборки (.mrpack) ─────────────────────────────────────
@@ -310,7 +341,95 @@ async function installMrpack({ versionId, file, projectId }, onProgress) {
   return get(inst.id);
 }
 
+// ── Сборки CurseForge (.zip с manifest.json) ─────────────────────
+const CF_FOLDER = { 6: 'mods', 12: 'resourcepacks', 6552: 'shaderpacks' };
+
+async function installCfPack({ projectId, fileId, file }, onProgress) {
+  let packFile = file;
+  let source = null;
+  let icon = '';
+  if (projectId || fileId) {
+    const proj = await curseforge.project(projectId);
+    icon = proj.logo?.thumbnailUrl || '';
+    const f = fileId ? (await curseforge.filesById([fileId]))[0] : (await curseforge.files(projectId))[0];
+    if (!f) throw new Error('У этой сборки нет файлов для скачивания');
+    if (!f.downloadUrl) throw new Error(`Автор запретил скачивать эту сборку из лаунчеров. Скачай .zip с сайта ${curseforge.pageUrl(proj, 'modpacks')} и нажми «Импорт файла».`);
+    source = { source: 'curseforge', projectId: String(proj.id), versionId: String(f.id), title: proj.name, version: f.displayName };
+    packFile = path.join(paths.cache, 'modpacks', `cf-${f.id}.zip`);
+    onProgress?.({ stage: `Скачиваем сборку ${proj.name}`, percent: 0 });
+    await download(f.downloadUrl, packFile, (d, t) => onProgress?.({ stage: `Скачиваем сборку ${proj.name}`, percent: t ? Math.round(d / t * 100) : 0 }));
+  }
+  const zip = new AdmZip(packFile);
+  const entry = zip.getEntry('manifest.json');
+  if (!entry) throw new Error('Это не сборка CurseForge: внутри нет manifest.json');
+  const man = JSON.parse(entry.getData().toString('utf8'));
+  const mc = man.minecraft?.version;
+  if (!mc) throw new Error('В сборке не указана версия Minecraft');
+  const ml = (man.minecraft.modLoaders || []).find(l => l.primary) || man.minecraft.modLoaders?.[0];
+  let loader = 'vanilla';
+  let loaderVersion = '';
+  if (ml) {
+    const [kind, ...rest] = ml.id.split('-');
+    if (kind === 'neoforge') throw new Error('Сборки на NeoForge пока не поддерживаются');
+    if (!['forge', 'fabric', 'quilt'].includes(kind)) throw new Error(`Неизвестный загрузчик сборки: ${ml.id}`);
+    loader = kind;
+    loaderVersion = rest.join('-');
+  }
+
+  const inst = create({ name: man.name || source?.title || 'Сборка', mc, loader, loaderVersion, icon, source });
+  const root = dir(inst.id);
+  const blocked = [];
+  try {
+    const refs = (man.files || []).filter(f => f.required !== false);
+    onProgress?.({ stage: 'Получаем список модов…', percent: 0 });
+    const files = [];
+    for (let i = 0; i < refs.length; i += 500) files.push(...await curseforge.filesById(refs.slice(i, i + 500).map(f => f.fileID)));
+    const mods = new Map();
+    const modIds = [...new Set(files.map(f => f.modId))];
+    for (let i = 0; i < modIds.length; i += 500) for (const m of await curseforge.projects(modIds.slice(i, i + 500))) mods.set(m.id, m);
+    const meta = readMeta(inst.id);
+    let done = 0;
+    await pool(files, 6, async f => {
+      const m = mods.get(f.modId);
+      const folder = CF_FOLDER[m?.classId] || (/\.jar$/i.test(f.fileName) ? 'mods' : 'resourcepacks');
+      const name = path.basename(f.fileName);
+      if (!f.downloadUrl) {
+        blocked.push({ title: m?.name || name, fileName: name, folder, url: curseforge.pageUrl(m) });
+      } else {
+        const dest = insideDir(root, `${folder}/${name}`);
+        await download(f.downloadUrl, dest);
+        const want = curseforge.sha1Of(f);
+        if (want && sha1(dest) !== want) throw new Error(`Файл ${name} скачался с ошибкой`);
+        meta.files[`${folder}/${name}`] = { projectId: String(f.modId), versionId: String(f.id), title: m?.name || name, icon: m?.logo?.thumbnailUrl || '', version: f.displayName, source: 'curseforge' };
+      }
+      done++;
+      onProgress?.({ stage: `Файлы сборки: ${done} из ${files.length}`, percent: Math.round(done / files.length * 100) });
+    });
+    meta.blocked = blocked;
+    writeMeta(inst.id, meta);
+    const over = (man.overrides || 'overrides').replace(/\/+$/, '') + '/';
+    for (const e of zip.getEntries()) {
+      if (e.isDirectory || !e.entryName.startsWith(over)) continue;
+      const dest = insideDir(root, e.entryName.slice(over.length));
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, e.getData());
+    }
+  } catch (e) {
+    remove(inst.id);
+    throw e;
+  }
+  return { ...get(inst.id), blocked };
+}
+
+// Импорт файла: .mrpack (Modrinth) или .zip (CurseForge)
+function importPack(file, onProgress) {
+  const zip = new AdmZip(file);
+  if (zip.getEntry('modrinth.index.json')) return installMrpack({ file }, onProgress);
+  if (zip.getEntry('manifest.json')) return installCfPack({ file }, onProgress);
+  throw new Error('Это не сборка: нужен файл .mrpack с Modrinth или .zip с CurseForge');
+}
+
 module.exports = {
   dir, list, get, create, update, remove, duplicate,
-  content, toggle, removeFile, addFiles, installProject, installMrpack, KINDS,
+  content, toggle, removeFile, addFiles, installProject, installMrpack, installCfPack, importPack, KINDS,
 };

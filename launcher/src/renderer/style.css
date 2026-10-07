@@ -891,3 +891,17 @@ body.theme-switch * { transition: background-color .5s, border-color .5s, color 
 .task-bar > div { height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--gold-700), var(--gold-light)); transition: width .25s; }
 .task-bar > div::after { content: ''; }
 .no-anim .icard, .no-anim .crow, .no-anim .mrow, .no-anim .task { animation: none !important; }
+
+/* Источник каталога и моды, которые нужно скачать вручную */
+.browser-head { flex-wrap: wrap; }
+.src-tabs { margin-left: auto; margin-right: 8px; background: rgba(0,0,0,.12); border-color: rgba(90,60,20,.35); }
+.src-tabs .tab { color: var(--ink-soft); font-size: 16px; padding: 5px 12px; }
+.src-tabs .tab.active { color: #2a1606; }
+.blocked-box {
+  margin-bottom: 12px; padding: 10px 14px; border-radius: 4px; color: var(--parch);
+  background: rgba(139,26,26,.18); border: 1px solid var(--gules); animation: rowIn .4s both;
+}
+.blocked-list { margin: 6px 0 0 18px; display: flex; flex-direction: column; gap: 3px; }
+.blocked-list a { color: var(--gold-light); }
+.parchment .blocked-list a { color: var(--azure); font-weight: 700; }
+.blocked-list small { opacity: .75; }

@@ -33,6 +33,8 @@ jobs:
           - { kind: instance-forge, version: '1.20.1' }
           - { kind: instance-quilt, version: latest }
           - { kind: instance-quilt, version: '1.20.1' }
+          - { kind: instance-cf-mods, version: '1.20.1' }
+          - { kind: instance-cf-pack, version: '-' }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,4 +48,4 @@ jobs:
         run: node scripts/smoke.js ${{ matrix.kind }} ${{ matrix.version }}
       - name: Запуск сборки
         if: ${{ startsWith(matrix.kind, 'instance-') }}
-        run: node scripts/smoke-instance.js ${{ matrix.kind == 'instance-mods' && 'mods' || matrix.kind == 'instance-modpack' && 'modpack' || matrix.kind == 'instance-quilt' && 'quilt' || 'forge' }} ${{ matrix.version }}
+        run: node scripts/smoke-instance.js ${{ matrix.kind }} ${{ matrix.version }}

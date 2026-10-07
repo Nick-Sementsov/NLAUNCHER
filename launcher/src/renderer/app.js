@@ -695,7 +695,10 @@ $('#btnImportPack').onclick = async () => {
     taskStart('Импорт сборки…');
     const inst = await api(km.modpack.import());
     taskEnd();
-    if (inst) { toast(`Сборка «${inst.name}» готова`); celebrate($('#btnImportPack')); await loadInstances(); openInstance(inst.id); }
+    if (inst) {
+      toast(`Сборка «${inst.name}» готова`); celebrate($('#btnImportPack')); await loadInstances(); openInstance(inst.id);
+      if (inst.blocked?.length) setTimeout(() => showBlocked(inst.blocked), 600);
+    }
   } catch (e) { taskEnd(); toast(e.message, 'error'); }
 };
 
@@ -706,6 +709,9 @@ async function openInstance(id) {
   $('#instName').textContent = i.name;
   $('#instSub').textContent = instSub(i);
   instIcon($('#instIcon'), i.icon);
+  const box = $('#blockedBox');
+  box.classList.toggle('hidden', !i.blocked?.length);
+  if (i.blocked?.length) box.innerHTML = `<b>Нужно докачать вручную: ${i.blocked.length}</b> — авторы запретили скачивание из лаунчеров.${blockedHtml(i.blocked)}`;
   go('instance');
   $$('.banner').forEach(b => b.classList.toggle('active', b.dataset.page === 'instances'));
   setInstTab(state.instTab);
@@ -858,14 +864,15 @@ $('#instDelete').onclick = () => modal('Удалить сборку?', `<p>Сб�
 ]);
 
 // ── Каталог Modrinth ─────────────────────────────────────────────
-const browser = { type: 'mod', inst: null, offset: 0, total: 0, seq: 0, installed: new Set() };
+const browser = { type: 'mod', inst: null, source: 'modrinth', offset: 0, total: 0, seq: 0, installed: new Set() };
+const SOURCE_NAMES = { modrinth: 'Modrinth', curseforge: 'CurseForge' };
 const TYPE_TITLES = { mod: 'Моды', resourcepack: 'Ресурспаки', shader: 'Шейдеры', modpack: 'Готовые сборки' };
 
 function openBrowser({ type, inst = null }) {
   browser.type = type;
   browser.inst = inst;
   browser.installed = new Set(inst ? state.content.map(c => c.projectId).filter(Boolean) : []);
-  $('#browserTitle').textContent = `${TYPE_TITLES[type]} с Modrinth`;
+  setBrowserSource(browser.source, true);
   $('#browserFor').textContent = inst
     ? `Для сборки «${inst.name}»: ${instSub(inst)}. Показаны только подходящие.`
     : 'Нажми «Скачать»: лаунчер сам создаст сборку со всеми модами.';
@@ -881,7 +888,7 @@ async function searchBrowser(reset) {
   if (reset) { browser.offset = 0; $('#browserList').innerHTML = '<p class="empty">Ищем…</p>'; }
   const inst = browser.inst;
   try {
-    const res = await api(km.modrinth.search({
+    const res = await api(km[browser.source].search({
       query: $('#browserSearch').value.trim(), type: browser.type, index: $('#browserSort').value,
       mc: inst?.mc, loader: inst?.loader, offset: browser.offset, limit: 20,
     }));
@@ -915,9 +922,10 @@ function browserRow(h, n) {
     try {
       if (browser.type === 'modpack') {
         taskStart(`Скачиваем ${h.title}…`);
-        const inst = await api(km.modpack.install({ projectId: h.id }));
+        const inst = await api(km.modpack.install({ projectId: h.id, source: browser.source }));
         taskEnd();
         toast(`Сборка «${inst.name}» готова к игре!`);
+        if (inst.blocked?.length) setTimeout(() => showBlocked(inst.blocked), 600);
         celebrate(btn);
         $('#browser').classList.add('hidden');
         await loadInstances();
@@ -925,7 +933,7 @@ function browserRow(h, n) {
         return;
       }
       taskStart(`Ставим ${h.title}…`);
-      await api(km.instances.install(browser.inst.id, h.id, browser.type));
+      await api(km.instances.install(browser.inst.id, h.id, browser.type, browser.source));
       taskEnd();
       browser.installed.add(h.id);
       btn.textContent = 'Установлено';
@@ -937,10 +945,34 @@ function browserRow(h, n) {
       taskEnd();
       btn.disabled = false;
       btn.textContent = 'Повторить';
-      toast(e.message, 'error');
+      showError(e.message);
     } finally { row.classList.remove('working'); }
   };
   return row;
+}
+
+function setBrowserSource(src, quiet) {
+  browser.source = src;
+  $$('#browserSource .tab').forEach(t => t.classList.toggle('active', t.dataset.src === src));
+  $('#browserTitle').textContent = `${TYPE_TITLES[browser.type]} с ${SOURCE_NAMES[src]}`;
+  if (!quiet) searchBrowser(true);
+}
+$$('#browserSource .tab').forEach(t => t.addEventListener('click', () => setBrowserSource(t.dataset.src)));
+
+// Ссылки в тексте ошибки делаем кликабельными (моды CurseForge, которые нельзя качать из лаунчеров)
+function linkify(text) {
+  return esc(text).replace(/https:\/\/[^\s<]+[^\s<.,)]/g, u => `<a href="${u}" target="_blank">${u}</a>`);
+}
+function showError(msg) {
+  if (/https:\/\//.test(msg)) modal('Не получилось скачать', `<p>${linkify(msg)}</p>`);
+  else toast(msg, 'error');
+}
+function blockedHtml(list) {
+  return `<ul class="blocked-list">${list.map(b => `<li><a href="${esc(b.url)}" target="_blank">${esc(b.title)}</a> <small>${esc(b.fileName)} → папка ${esc(b.folder)}</small></li>`).join('')}</ul>`;
+}
+function showBlocked(list) {
+  modal('Часть файлов нужно скачать вручную',
+    `<p>Авторы этих модов запретили скачивать их из лаунчеров. Открой каждую ссылку, скачай указанный файл и положи его в папку сборки (кнопка «Папка» или «Добавить файл»).</p>${blockedHtml(list)}`);
 }
 
 let browserTimer = null;

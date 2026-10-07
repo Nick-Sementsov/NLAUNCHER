@@ -16,6 +16,7 @@ const panel = require('./core/panel');
 const launcher = require('./core/launch');
 const instances = require('./core/instances');
 const modrinth = require('./core/modrinth');
+const curseforge = require('./core/curseforge');
 const { ping } = require('./core/ping');
 
 let win;
@@ -192,16 +193,19 @@ handle('instances:addFiles', async (id, kind) => {
   instances.addFiles(id, kind, r.filePaths);
   return r.filePaths.length;
 });
-handle('instances:install', (id, projectId, type) =>
-  instances.installProject(id, projectId, type, p => send('content:progress', p)));
-handle('modpack:install', ref =>
-  instances.installMrpack(ref || {}, p => send('content:progress', p)));
+handle('instances:install', (id, projectId, type, source) =>
+  instances.installProject(id, projectId, type, p => send('content:progress', p), source === 'curseforge' ? 'curseforge' : 'modrinth'));
+handle('modpack:install', ref => {
+  const progress = p => send('content:progress', p);
+  return ref?.source === 'curseforge' ? instances.installCfPack(ref, progress) : instances.installMrpack(ref || {}, progress);
+});
 handle('modpack:import', async () => {
-  const r = await dialog.showOpenDialog(win, { title: 'Импорт сборки', properties: ['openFile'], filters: [{ name: 'Сборка Modrinth', extensions: ['mrpack'] }] });
+  const r = await dialog.showOpenDialog(win, { title: 'Импорт сборки', properties: ['openFile'], filters: [{ name: 'Сборка Modrinth или CurseForge', extensions: ['mrpack', 'zip'] }] });
   if (r.canceled || !r.filePaths.length) return null;
-  return instances.installMrpack({ file: r.filePaths[0] }, p => send('content:progress', p));
+  return instances.importPack(r.filePaths[0], p => send('content:progress', p));
 });
 handle('modrinth:search', opts => modrinth.search(opts || {}));
+handle('curseforge:search', opts => curseforge.search(opts || {}));
 handle('loaders:list', (kind, mc) => versions.loaderVersions(kind, mc));
 
 process.on('uncaughtException', e => {
