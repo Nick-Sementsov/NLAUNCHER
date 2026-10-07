@@ -209,12 +209,14 @@ async function resolveProject(source, projectId, meta, type, loader) {
   if (source === 'curseforge') {
     const [proj, list] = await Promise.all([
       curseforge.project(projectId),
-      curseforge.files(projectId, { mc: meta.mc, loader, type }),
+      curseforge.files(projectId, { mc: meta.mc, loader, type }).catch(() => null),
     ]);
-    const f = list[0];
-    if (!f) throw new Error(`«${proj.name}» нет для ${want}`);
-    if (!f.downloadUrl) {
-      throw new Error(`Автор «${proj.name}» запретил скачивать его из лаунчеров. Скачай файл ${f.fileName} с сайта ${curseforge.pageUrl(proj)} и добавь кнопкой «Добавить файл».`);
+    const f = list?.[0];
+    if (!f && list) throw new Error(`«${proj.name}» нет для ${want}`);
+    if (!f || !f.downloadUrl) {
+      const twin = await modrinthTwin(proj, meta.mc, loader, TYPE_DIR[type]);
+      if (twin) return { ...twin, deps: [], source: 'modrinth' };
+      throw new Error(`CurseForge не отдаёт «${proj.name}» лаунчерам (так решил автор). Скачай ${f ? 'файл ' + f.fileName : 'мод'} с сайта ${curseforge.pageUrl(proj)} и добавь кнопкой «Добавить файл».`);
     }
     return {
       id: String(proj.id), title: proj.name, icon: proj.logo?.thumbnailUrl || '',
@@ -261,7 +263,7 @@ async function installProject(id, projectId, type, onProgress, source = 'modrint
   await download(p.url, dest, (d, t) => onProgress?.({ stage: `Скачиваем ${p.title}`, percent: t ? Math.round(d / t * 100) : 0 }));
   if (p.sha1 && sha1(dest) !== p.sha1) { fs.rmSync(dest, { force: true }); throw new Error(`Файл ${name} скачался с ошибкой`); }
   meta.files = meta.files || {};
-  meta.files[`${folder}/${name}`] = { projectId: p.id, versionId: p.versionId, title: p.title, icon: p.icon, version: p.version, source };
+  meta.files[`${folder}/${name}`] = { projectId: p.id, versionId: p.versionId, title: p.title, icon: p.icon, version: p.version, source: p.source || source };
   writeMeta(id, meta);
 
   // обязательные зависимости (например, Fabric API)
@@ -341,6 +343,21 @@ async function installMrpack({ versionId, file, projectId }, onProgress) {
   return get(inst.id);
 }
 
+// Мод с CurseForge, который не отдаётся (автор запретил лаунчеры или зеркало не пускает):
+// многие авторы выкладывают те же моды на Modrinth под тем же именем — берём оттуда
+async function modrinthTwin(cfMod, mc, loader, kind) {
+  if (!cfMod?.slug) return null;
+  try {
+    const proj = await modrinth.project(cfMod.slug);
+    const type = kind === 'mods' ? 'mod' : kind === 'shaderpacks' ? 'shader' : 'resourcepack';
+    if (proj.project_type !== type) return null;
+    const v = (await modrinth.versions(proj.id, { mc, loader, type }))[0];
+    if (!v) return null;
+    const f = modrinth.primaryFile(v);
+    return { id: proj.id, title: proj.title, icon: proj.icon_url || '', url: f.url, fileName: f.filename, sha1: f.hashes?.sha1, versionId: v.id, version: v.version_number };
+  } catch { return null; }
+}
+
 // ── Сборки CurseForge (.zip с manifest.json) ─────────────────────
 const CF_FOLDER = { 6: 'mods', 12: 'resourcepacks', 6552: 'shaderpacks' };
 
@@ -391,7 +408,14 @@ async function installCfPack({ projectId, fileId, file }, onProgress) {
       const m = mods.get(f.modId);
       const folder = CF_FOLDER[m?.classId] || (f.missing || /\.jar$/i.test(f.fileName) ? 'mods' : 'resourcepacks');
       const name = path.basename(f.fileName);
-      if (f.missing || !f.downloadUrl) {
+      const twin = (f.missing || !f.downloadUrl) ? await modrinthTwin(m, mc, loader === 'vanilla' ? null : loader, folder) : null;
+      if (twin) {
+        const tname = path.basename(twin.fileName);
+        const dest = insideDir(root, `${folder}/${tname}`);
+        await download(twin.url, dest);
+        if (twin.sha1 && sha1(dest) !== twin.sha1) throw new Error(`Файл ${tname} скачался с ошибкой`);
+        meta.files[`${folder}/${tname}`] = { projectId: twin.id, versionId: twin.versionId, title: twin.title, icon: twin.icon, version: twin.version, source: 'modrinth' };
+      } else if (f.missing || !f.downloadUrl) {
         blocked.push({ title: m?.name || name, fileName: name, folder, url: m ? curseforge.pageUrl(m) : `https://www.curseforge.com/projects/${f.modId}` });
       } else {
         const dest = insideDir(root, `${folder}/${name}`);
