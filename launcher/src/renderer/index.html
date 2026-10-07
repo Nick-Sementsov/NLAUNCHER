@@ -331,6 +331,11 @@
             <input class="field" id="instEditName" maxlength="40">
             <label class="lbl">Память для этой сборки</label>
             <select class="field" id="instEditMem"></select>
+            <label class="lbl">Загрузчик модов</label>
+            <div class="seg" id="instEditLoader">
+              <button type="button" data-l="vanilla">Ванилла</button><button type="button" data-l="fabric">Fabric</button><button type="button" data-l="quilt">Quilt</button><button type="button" data-l="forge">Forge</button>
+            </div>
+            <div id="instEditLvWrap"><label class="lbl">Версия загрузчика</label><select class="field" id="instEditLv"><option value="">Рекомендуемая (самая свежая)</option></select></div>
             <p class="hint" id="instLoaderInfo"></p>
             <div class="row-btns">
               <button class="btn btn-gold" id="instSave">Сохранить</button>

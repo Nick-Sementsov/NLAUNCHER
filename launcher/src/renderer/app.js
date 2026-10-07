@@ -540,8 +540,16 @@ km.on.exit(info => {
   setBusy(false);
   setProgress(info.crashed ? 'Игра вылетела' : 'Готов к игре', info.crashed ? 0 : 100);
   if (info.crashed) {
+    const sel = state.settings.selectedVersion;
+    const inst = sel?.kind === 'instance' ? state.instances.find(x => x.id === sel.id) : null;
+    const tail = info.tail || '';
+    let hint = '';
+    if (inst && inst.loader !== 'vanilla' && /Unsupported class file major version|Mappings not present|Incompatible mods? found|requires .*minecraft/i.test(tail)) {
+      hint = `<p><b>Похоже, загрузчик ${esc(LOADER_NAMES[inst.loader])} или моды не подходят к Minecraft ${esc(inst.mc)}.</b>
+        Открой сборку → «Настройки» и поставь версию загрузчика «Рекомендуемая» или смени загрузчик на Fabric.</p>`;
+    }
     modal('Игра завершилась с ошибкой',
-      `<p>Код выхода: ${esc(info.code)}. Последние строки консоли:</p><pre>${esc(info.tail || 'нет вывода')}</pre>`,
+      `${hint}<p>Код выхода: ${esc(info.code)}. Последние строки консоли:</p><pre>${esc(tail || 'нет вывода')}</pre>`,
       [{ label: 'Открыть консоль', cls: 'btn-iron', onClick: () => go('console') }, { label: 'Закрыть' }]);
   }
 });
@@ -578,7 +586,8 @@ function instIcon(img, url) {
 }
 
 function instSub(i) {
-  const loader = i.loader === 'vanilla' ? '' : ` · ${LOADER_NAMES[i.loader]}${i.loaderVersion ? ' ' + i.loaderVersion : ''}`;
+  const lv = i.loaderVersion || i.loaderResolved;
+  const loader = i.loader === 'vanilla' ? '' : ` · ${LOADER_NAMES[i.loader]}${lv ? ' ' + lv : ''}`;
   return `Minecraft ${i.mc}${loader}`;
 }
 
@@ -769,7 +778,34 @@ function renderInstSettings() {
   const opts = [0, 2048, 3072, 4096, 6144, 8192, 12288, 16384].filter(m => m < total);
   $('#instEditMem').innerHTML = opts.map(m => `<option value="${m}" ${m === (i.memoryMb || 0) ? 'selected' : ''}>${m ? fmtMem(m) : 'Как в общих настройках'}</option>`).join('');
   $('#instLoaderInfo').textContent = `${instSub(i)}${i.source ? ` · из Modrinth: ${i.source.title} ${i.source.version || ''}` : ''}`;
+  state.editLoader = i.loader;
+  $$('#instEditLoader button').forEach(b => b.classList.toggle('on', b.dataset.l === i.loader));
+  loadEditLoaderVersions(i.loaderVersion);
 }
+
+async function loadEditLoaderVersions(current = '') {
+  const loader = state.editLoader;
+  const mc = state.inst.mc;
+  const sel = $('#instEditLv');
+  $('#instEditLvWrap').classList.toggle('hidden', loader === 'vanilla');
+  sel.innerHTML = '<option value="">Рекомендуемая (самая свежая)</option>';
+  if (current) sel.innerHTML += `<option value="${esc(current)}">${esc(current)}</option>`;
+  sel.value = current;
+  if (loader === 'vanilla') return;
+  try {
+    const list = await api(km.loaders(loader, mc));
+    if (loader !== state.editLoader) return;
+    sel.innerHTML = '<option value="">Рекомендуемая (самая свежая)</option>' +
+      list.slice(0, 80).map(l => `<option value="${esc(l.id)}">${esc(l.id)}${l.stable ? '' : ' (тест)'}</option>`).join('');
+    sel.value = list.some(l => l.id === current) ? current : '';
+  } catch { /* оставим что есть */ }
+}
+
+$$('#instEditLoader button').forEach(b => b.onclick = () => {
+  state.editLoader = b.dataset.l;
+  $$('#instEditLoader button').forEach(x => x.classList.toggle('on', x === b));
+  loadEditLoaderVersions('');
+});
 
 $$('#instTabs .tab').forEach(t => t.addEventListener('click', () => setInstTab(t.dataset.tab)));
 $('#instBack').onclick = () => { go('instances'); loadInstances(); };
@@ -786,8 +822,13 @@ $('[data-inst-folder]').onclick = () => api(km.openFolder(`instance:${state.inst
 $('#btnAddModrinth').onclick = () => openBrowser({ type: KIND_TYPE[state.instTab], inst: state.inst });
 $('#instSave').onclick = async () => {
   try {
-    state.inst = await api(km.instances.update(state.inst.id, { name: $('#instEditName').value, memoryMb: +$('#instEditMem').value }));
+    state.inst = await api(km.instances.update(state.inst.id, {
+      name: $('#instEditName').value, memoryMb: +$('#instEditMem').value,
+      loader: state.editLoader, loaderVersion: state.editLoader === 'vanilla' ? '' : $('#instEditLv').value,
+    }));
     $('#instName').textContent = state.inst.name;
+    $('#instSub').textContent = instSub(state.inst);
+    renderInstSettings();
     toast('Сохранено');
     loadInstances();
   } catch (e) { toast(e.message, 'error'); }

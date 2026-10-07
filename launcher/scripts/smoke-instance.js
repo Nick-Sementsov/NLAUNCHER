@@ -17,8 +17,8 @@ store.update({ selectedAccount: acc.id, memoryMb: 2048 });
 
 const MARKERS = [
   /Setting user: KMSmoke/,
-  /Loading Minecraft .* with Fabric Loader/,
-  /Loading Minecraft .* with Quilt Loader/,
+  // «Loading Minecraft … with Quilt/Fabric Loader» не годится: эта строка печатается
+  // ещё до того, как загрузчик прочитал игру, и сборка может упасть сразу после неё
   /ModLauncher running/,
   /Pixel format not accelerated/,
   /GLFW error 65542/,
@@ -49,8 +49,15 @@ async function build() {
     if (!mods.length) throw new Error('в сборке не оказалось модов');
     return inst;
   }
-  const loader = mode === 'forge' ? 'forge' : 'fabric';
-  const inst = instances.create({ name: `Смоук ${loader} ${wanted}`, mc: wanted, loader });
+  const loader = mode === 'forge' ? 'forge' : mode === 'quilt' ? 'quilt' : 'fabric';
+  // 'latest' — самая свежая релизная версия из манифеста Mojang
+  const mc = wanted === 'latest' ? (await require('../src/core/versions').list(false)).latest.release : wanted;
+  const inst = instances.create({ name: `Смоук ${loader} ${mc}`, mc, loader });
+  if (loader === 'quilt') {
+    // Quilt умеет запускать моды Fabric: проверяем вместе с Fabric API
+    const r = await instances.installProject(inst.id, 'fabric-api', 'mod', onProgress);
+    console.log(`+ ${r.title}`);
+  }
   if (loader === 'fabric') {
     for (const id of ['fabric-api', 'sodium', 'lithium']) {
       const r = await instances.installProject(inst.id, id, 'mod', onProgress);
