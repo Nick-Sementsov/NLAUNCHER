@@ -77,7 +77,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   background: radial-gradient(circle, rgba(242,210,124,.28), transparent 65%);
   animation: glow 2.2s ease-in-out infinite alternate;
 }
-.intro-crest { width: 130px; height: 156px; position: relative; filter: drop-shadow(0 10px 22px rgba(0,0,0,.7)); animation: crestIn 1.1s cubic-bezier(.2,.8,.2,1) both; }
+.intro-crest { width: 380px; height: auto; position: relative; filter: drop-shadow(0 10px 22px rgba(0,0,0,.7)); animation: crestIn 1.1s cubic-bezier(.2,.8,.2,1) both; }
 .intro-title {
   position: relative; font-family: var(--f-gothic); font-weight: 800; font-size: 54px; letter-spacing: 2px;
   color: var(--gold-light); text-shadow: 0 3px 0 #000, 0 0 26px rgba(242,210,124,.45);
@@ -119,7 +119,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   pointer-events: none;
 }
 .tb-brand { display: flex; align-items: center; gap: 10px; padding: 0 16px; }
-.tb-crest { width: 24px; height: 29px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+.tb-crest { height: 40px; width: auto; margin: -4px 0; filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
 .tb-title {
   font-family: var(--f-gothic); font-weight: 800; font-size: 24px; letter-spacing: 1px;
   color: var(--gold-light);
@@ -594,7 +594,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 /* герб в заголовке ловит блик */
 .tb-crest { animation: crestShine 6s ease-in-out infinite; }
-@keyframes crestShine { 0%, 85%, 100% { filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); transform: none; } 90% { filter: drop-shadow(0 0 8px rgba(242,210,124,.9)); transform: scale(1.12) rotate(-6deg); } }
+@keyframes crestShine { 0%, 85%, 100% { filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); transform: none; } 90% { filter: drop-shadow(0 0 8px rgba(242,210,124,.9)); transform: scale(1.08); } }
 
 /* кнопки: волна от нажатия и подъём */
 .btn { position: relative; overflow: hidden; transition: transform .15s, filter .15s, box-shadow .2s; }
@@ -639,7 +639,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .welcome.leaving { animation: fadeOut .4s ease forwards; }
 @keyframes fadeOut { to { opacity: 0; } }
 .welcome-box { text-align: center; width: min(760px, 92vw); animation: modalIn .6s cubic-bezier(.2,1.3,.4,1); }
-.welcome-crest { width: 80px; height: 96px; filter: drop-shadow(0 8px 16px rgba(0,0,0,.7)); animation: crestIn 1s cubic-bezier(.2,.8,.2,1) both, float 3s ease-in-out 1s infinite alternate; }
+.welcome-crest { width: 260px; height: auto; filter: drop-shadow(0 8px 16px rgba(0,0,0,.7)); animation: crestIn 1s cubic-bezier(.2,.8,.2,1) both, float 3s ease-in-out 1s infinite alternate; }
 @keyframes float { to { transform: translateY(-6px); } }
 .welcome h2 { font-family: var(--f-head); font-weight: 700; font-size: 36px; color: var(--gold-light); margin-top: 8px; text-shadow: 0 2px 0 #000; }
 .welcome-box > p { color: var(--muted); font-size: 17px; margin: 4px 0 22px; }
@@ -951,8 +951,8 @@ body.theme-switch * { transition: background-color .5s, border-color .5s, color 
 .dep-warn { color: var(--gules); font-weight: 700; }
 
 /* окно обновления лаунчера */
-.upd-head { display: grid; grid-template-columns: 54px 1fr; gap: 14px; align-items: center; }
-.upd-crest { width: 54px; height: 64px; animation: crestIn .6s cubic-bezier(.2,1.3,.4,1) both, glow 2.4s ease-in-out .6s infinite alternate; }
+.upd-head { display: grid; grid-template-columns: 120px 1fr; gap: 14px; align-items: center; }
+.upd-crest { width: 120px; height: auto; animation: crestIn .6s cubic-bezier(.2,1.3,.4,1) both, glow 2.4s ease-in-out .6s infinite alternate; }
 .upd-notes { margin: 12px 0 0 20px; display: flex; flex-direction: column; gap: 4px; }
 .upd-notes li { animation: rowIn .35s cubic-bezier(.2,.8,.2,1) both; }
 .upd-notes li:nth-child(2) { animation-delay: .06s; } .upd-notes li:nth-child(3) { animation-delay: .12s; }
