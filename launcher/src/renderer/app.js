@@ -565,7 +565,7 @@ function notesHtml(html) {
 function askUpdate(u) {
   upd.asked = u.version;
   modal(`Вышла новая версия ${u.version}`, `
-    <div class="upd-head"><svg class="upd-crest"><use href="#crest"/></svg>
+    <div class="upd-head"><img class="upd-crest" src="logo.png" alt="">
     <p>У тебя версия ${esc(u.current || '')}. Обновить лаунчер сейчас? Это займёт около минуты, лаунчер сам перезапустится.</p></div>
     ${notesHtml(u.notes)}`, [
     { label: 'Позже', cls: 'btn-iron', onClick: () => { upd.choice = 'later'; showUpdateBadge(u); } },
