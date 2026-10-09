@@ -1,1 +1,5 @@
-node_modules/ 
+node_modules/
+launcher/dist/
+data/
+mods/
+*.log

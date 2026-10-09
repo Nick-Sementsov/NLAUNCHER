@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: kmshot: https://mc-heads.net https://crafatar.com https://cdn.modrinth.com https://media.forgecdn.net; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<title>KM Launcher</title>
+<link rel="stylesheet" href="style.css">
+<script src="boot.js"></script>
+</head>
+<body>
+
+<!-- Общие геральдические символы -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="fleur" viewBox="0 0 100 100">
+      <path d="M50 6C41 20 37 34 44 50h12C63 34 59 20 50 6Z"/>
+      <path d="M44 50C30 51 17 42 19 29c2-9 11-12 16-6-7 2-7 11-1 15 4 3 8 6 10 12Z"/>
+      <path d="M56 50c14 1 27-8 25-21-2-9-11-12-16-6 7 2 7 11 1 15-4 3-8 6-10 12Z"/>
+      <rect x="33" y="50" width="34" height="8" rx="2"/>
+      <path d="M44 58c-4 9-10 15-17 17 9 3 17-1 23-9 6 8 14 12 23 9-7-2-13-8-17-17Z"/>
+    </symbol>
+    <symbol id="crest" viewBox="0 0 100 120">
+      <path d="M8 6h84v46c0 32-19 52-42 62C27 104 8 84 8 52Z" fill="#d4a84b"/>
+      <path d="M14 12h36v101C30 103 14 85 14 52Z" fill="#23407e"/>
+      <path d="M50 12h36v40c0 33-16 51-36 61Z" fill="#8f1d1d"/>
+      <path d="M14 12h72v14H14Z" fill="#000" opacity=".12"/>
+      <use href="#fleur" x="22" y="26" width="56" height="56" fill="#f2d27c"/>
+      <path d="M8 6h84v46c0 32-19 52-42 62C27 104 8 84 8 52Z" fill="none" stroke="#5c3d12" stroke-width="2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- Заставка: поднимается решётка ворот -->
+<div class="intro" id="intro">
+  <div class="intro-glow"></div>
+  <img class="intro-crest" src="logo.png" alt="KingMine" draggable="false">
+  <div class="intro-title">KM Launcher</div>
+  <div class="intro-sub">Загрузка…</div>
+  <div class="portcullis"></div>
+</div>
+
+<!-- Заголовок окна: каменная стена с зубцами -->
+<header class="titlebar">
+  <div class="tb-drag"></div>
+  <div class="tb-update hidden" id="updateBadge"></div>
+  <button class="tb-btn" id="btnMin" title="Свернуть">&#x2013;</button>
+  <button class="tb-btn tb-close" id="btnClose" title="Закрыть">&#x2715;</button>
+</header>
+
+<div class="shell">
+  <!-- Боковое меню: геральдические знамёна -->
+  <nav class="sidebar">
+    <button class="banner active" data-page="home">
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M3 21V10l2-2 2 2v3h2V6l3-4 3 4v7h2v-3l2-2 2 2v11h-7v-4a2 2 0 0 0-4 0v4z"/></svg><span>Главная</span></button>
+    <button class="banner" data-page="versions">
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 3l9 9-2 2-9-9V3zm16 0v2l-6 6-2-2 6-6zM6 15l3 3-2 2-1-1-2 2-1-1 2-2-1-1zm12 0l2 2-1 1 2 2-1 1-2-2-1 1-2-2z"/></svg><span>Версии</span></button>
+    <button class="banner" data-page="instances">
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 7l8-4 8 4v10l-8 4-8-4zm8-1.8L7.2 7.6 12 10l4.8-2.4zM6 9.3v6.5l5 2.5v-6.5zm12 0l-5 2.5v6.5l5-2.5z"/></svg><span>Сборки</span></button>
+    <button class="banner" data-page="accounts">
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/></svg><span>Аккаунты</span></button>
+    <button class="banner" data-page="settings">
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M4 9h11l2-3h4v4h-4l-2 1v2H9v-2L4 11zm5 6h6v2h2v3H7v-3h2z"/></svg><span>Настройки</span></button>
+    <button class="banner" data-page="console">
+      <svg class="b-ico" viewBox="0 0 24 24"><path d="M6 3h11a3 3 0 0 1 3 3v1h-3v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-1h3V6a3 3 0 0 1 1-3zm3 5v2h6V8zm0 4v2h6v-2z"/></svg><span>Консоль</span></button>
+    <div class="sb-foot">
+      <div id="appVersion"></div>
+    </div>
+  </nav>
+
+  <main class="pages">
+    <!-- ЗАМОК -->
+    <section class="page active" id="page-home">
+      <div class="hero">
+        <svg class="hero-scene" viewBox="0 0 1200 340" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+              <stop class="sky1" offset="0" stop-color="#0a1230"/><stop class="sky2" offset=".55" stop-color="#2a2a52"/><stop class="sky3" offset=".85" stop-color="#7a4a5a"/><stop class="sky4" offset="1" stop-color="#c47a4a"/>
+            </linearGradient>
+            <radialGradient id="moonGlow"><stop offset="0" stop-color="#fff4cf" stop-opacity=".5"/><stop offset="1" stop-color="#fff4cf" stop-opacity="0"/></radialGradient>
+            <radialGradient id="torch"><stop offset="0" stop-color="#ffd27a"/><stop offset=".4" stop-color="#ff9a3a" stop-opacity=".7"/><stop offset="1" stop-color="#ff6a1a" stop-opacity="0"/></radialGradient>
+            <linearGradient id="stone" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#2b2f3d"/><stop offset=".6" stop-color="#3b4152"/><stop offset="1" stop-color="#262a36"/>
+            </linearGradient>
+            <linearGradient id="roof" x1="0" y1="0" x2="1" y2="0">
+              <stop class="roof1" offset="0" stop-color="#1b2a55"/><stop class="roof2" offset=".45" stop-color="#2f4a8c"/><stop class="roof1" offset="1" stop-color="#16224a"/>
+            </linearGradient>
+            <pattern id="bricks" width="24" height="12" patternUnits="userSpaceOnUse">
+              <path d="M0 12h24M0 6h24M12 0v6M0 6v6M24 6v6" stroke="#000" stroke-opacity=".18" stroke-width="1" fill="none"/>
+            </pattern>
+            <linearGradient id="meteorTail" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <rect width="1200" height="340" fill="url(#sky)"/>
+          <!-- звёзды -->
+          <g class="stars" fill="#fff">
+            <circle cx="60" cy="40" r="1.3"/><circle cx="150" cy="90" r="1"/><circle cx="230" cy="28" r="1.5"/><circle cx="310" cy="70" r="1"/>
+            <circle cx="390" cy="22" r="1.2"/><circle cx="470" cy="60" r="1"/><circle cx="540" cy="35" r="1.4"/><circle cx="610" cy="95" r="1"/>
+            <circle cx="680" cy="20" r="1.2"/><circle cx="760" cy="70" r="1"/><circle cx="1010" cy="40" r="1.3"/><circle cx="1090" cy="85" r="1"/>
+            <circle cx="1150" cy="30" r="1.2"/><circle cx="20" cy="120" r="1"/><circle cx="880" cy="120" r="1"/><circle cx="430" cy="130" r="1"/>
+          </g>
+          <!-- луна -->
+          <circle cx="1040" cy="78" r="80" fill="url(#moonGlow)"/>
+          <circle cx="1040" cy="78" r="26" fill="#f7ecc6"/>
+          <circle cx="1031" cy="70" r="5" fill="#e3d29a"/><circle cx="1050" cy="86" r="3.5" fill="#e3d29a"/>
+          <!-- падающие звёзды -->
+          <g class="meteor m1"><line x1="0" y1="0" x2="-70" y2="-26" stroke="url(#meteorTail)" stroke-width="2" stroke-linecap="round"/><circle r="1.8" fill="#fff"/></g>
+          <g class="meteor m2"><line x1="0" y1="0" x2="-55" y2="-20" stroke="url(#meteorTail)" stroke-width="1.6" stroke-linecap="round"/><circle r="1.5" fill="#fff"/></g>
+          <!-- облака -->
+          <g class="clouds" fill="#1a1d3c" opacity=".55">
+            <ellipse cx="200" cy="110" rx="120" ry="14"/><ellipse cx="260" cy="100" rx="70" ry="12"/>
+            <ellipse cx="760" cy="60" rx="140" ry="12"/><ellipse cx="820" cy="52" rx="60" ry="10"/>
+          </g>
+          <!-- дальние холмы и собор -->
+          <!-- северное сияние (пурпур) -->
+          <g class="sc sc-aurora">
+            <path class="aur a1" d="M0 120 C200 40 380 150 600 70 S1000 120 1200 50 V150 C1000 210 800 120 600 170 S200 120 0 200Z" fill="#7dffc8" opacity=".14"/>
+            <path class="aur a2" d="M0 90 C240 150 420 30 640 100 S1020 40 1200 110 V170 C1000 130 820 200 620 150 S220 190 0 160Z" fill="#c38bff" opacity=".16"/>
+          </g>
+          <!-- вулкан (пламя дракона) -->
+          <g class="sc sc-volcano">
+            <path d="M780 250 L900 120 L930 128 L960 118 L1090 250Z" fill="#1d0f0c"/>
+            <path class="lava" d="M905 124 L930 130 L955 120 L948 160 L935 140 L925 175 L915 150Z" fill="#ff6a1a"/>
+            <circle class="lava-glow" cx="930" cy="122" r="60" fill="url(#torch)"/>
+            <g class="smoke" fill="#3a2a26" opacity=".6"><circle cx="930" cy="100" r="14"/><circle cx="944" cy="84" r="18"/><circle cx="926" cy="66" r="22"/></g>
+          </g>
+          <!-- снежные пики (лёд) -->
+          <g class="sc sc-peaks">
+            <path d="M0 230 L120 120 L200 190 L330 90 L460 210 L560 130 L700 230Z" fill="#2c4664"/>
+            <path d="M120 120 L95 143 L112 140 L124 150 L140 137Z M330 90 L300 120 L320 116 L334 128 L352 112Z M560 130 L540 150 L556 148 L566 156 L578 146Z" fill="#e8f2ff"/>
+          </g>
+          <path class="hill1" d="M0 250 L140 200 L260 235 L400 180 L540 240 L700 195 L860 240 L1000 190 L1200 245 V340 H0Z" fill="#232542"/>
+          <g fill="#1c1e36">
+            <rect x="120" y="190" width="60" height="70"/>
+            <path d="M118 192 L134 130 L150 192Z"/><path d="M150 192 L166 140 L182 192Z"/>
+            <rect x="140" y="150" width="20" height="45"/><path d="M137 152 L150 96 L163 152Z"/>
+            <circle cx="150" cy="210" r="9" fill="#e9a44a" opacity=".55"/>
+          </g>
+          <path class="hill2" d="M0 285 L180 255 L360 280 L560 250 L760 285 L960 255 L1200 285 V340 H0Z" fill="#171828"/>
+          <!-- ели (лес) -->
+          <g class="sc sc-pines" fill="#1a3a22">
+            <path d="M30 290 l30-100 30 100z M85 295 l24-80 24 80z M140 290 l34-120 34 120z M290 295 l26-86 26 86z M345 290 l30-106 30 106z M990 292 l30-98 30 98z M1050 295 l24-78 24 78z M1105 290 l34-116 34 116z"/>
+          </g>
+          <g class="sc sc-fireflies" fill="#d8ff6a">
+            <circle cx="220" cy="270" r="2"/><circle cx="420" cy="250" r="1.6"/><circle cx="980" cy="260" r="2"/><circle cx="1150" cy="240" r="1.6"/><circle cx="600" cy="300" r="1.8"/>
+          </g>
+          <!-- молнии (ночь) -->
+          <path class="sc sc-bolt" d="M300 20 L280 90 L300 88 L270 170 L320 80 L298 82 L318 20Z" fill="#e8eeff"/>
+          <!-- Замок -->
+          <g transform="translate(560 64)">
+            <!-- донжон со шпилем -->
+            <rect x="176" y="40" width="68" height="200" fill="url(#stone)"/>
+            <rect x="176" y="40" width="68" height="200" fill="url(#bricks)"/>
+            <path d="M170 42 L210 -40 L250 42Z" fill="url(#roof)"/>
+            <line x1="210" y1="-40" x2="210" y2="-62" stroke="#1a1a22" stroke-width="2"/>
+            <path class="flag" d="M210 -62 h34 l-9 7 l9 7 h-34z" fill="#23407e"/>
+            <use href="#fleur" x="219" y="-61" width="12" height="12" fill="#f2d27c" class="flag"/>
+            <!-- окно-роза -->
+            <circle cx="210" cy="92" r="16" fill="#1a1520" stroke="#6a6f80" stroke-width="2"/>
+            <g class="win" fill="#ffcf6b">
+              <circle cx="210" cy="92" r="5"/>
+              <path d="M210 78v28M196 92h28M200 82l20 20M220 82l-20 20" stroke="#ffcf6b" stroke-width="2.4" opacity=".85"/>
+            </g>
+            <!-- стена -->
+            <rect x="40" y="150" width="340" height="90" fill="url(#stone)"/>
+            <rect x="40" y="150" width="340" height="90" fill="url(#bricks)"/>
+            <path d="M40 150 h340 v-12 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-14 v8 h-14 v-8 h-12z" fill="#30354a"/>
+            <!-- ворота -->
+            <path d="M180 240 V198 Q210 168 240 198 V240Z" fill="#0b0a0e"/>
+            <g class="gate-bars" stroke="#3c3a40" stroke-width="2.4">
+              <path d="M188 240V190M198 240V180M210 240V176M222 240V180M232 240V190M184 206h52M184 222h52"/>
+            </g>
+            <!-- круглые башни с конусами -->
+            <g>
+              <rect x="20" y="96" width="58" height="144" fill="url(#stone)"/>
+              <rect x="20" y="96" width="58" height="144" fill="url(#bricks)"/>
+              <path d="M12 98 L49 18 L86 98Z" fill="url(#roof)"/>
+              <line x1="49" y1="18" x2="49" y2="0" stroke="#1a1a22" stroke-width="2"/>
+              <path class="flag" d="M49 0 h28 l-8 6 l8 6 h-28z" fill="#8f1d1d"/>
+              <path d="M44 130 v-10 a5 5 0 0 1 10 0 v10z" class="win" fill="#ffcf6b"/>
+              <path d="M44 180 v-10 a5 5 0 0 1 10 0 v10z" class="win w2" fill="#ffcf6b"/>
+            </g>
+            <g>
+              <rect x="342" y="96" width="58" height="144" fill="url(#stone)"/>
+              <rect x="342" y="96" width="58" height="144" fill="url(#bricks)"/>
+              <path d="M334 98 L371 18 L408 98Z" fill="url(#roof)"/>
+              <line x1="371" y1="18" x2="371" y2="0" stroke="#1a1a22" stroke-width="2"/>
+              <path class="flag" d="M371 0 h28 l-8 6 l8 6 h-28z" fill="#8f1d1d"/>
+              <path d="M366 140 v-10 a5 5 0 0 1 10 0 v10z" class="win w2" fill="#ffcf6b"/>
+            </g>
+            <g>
+              <rect x="110" y="118" width="40" height="122" fill="url(#stone)"/>
+              <path d="M104 120 L130 60 L156 120Z" fill="url(#roof)"/>
+              <path d="M126 150 v-9 a4 4 0 0 1 8 0 v9z" class="win" fill="#ffcf6b"/>
+              <rect x="270" y="118" width="40" height="122" fill="url(#stone)"/>
+              <path d="M264 120 L290 60 L316 120Z" fill="url(#roof)"/>
+              <path d="M286 150 v-9 a4 4 0 0 1 8 0 v9z" class="win w2" fill="#ffcf6b"/>
+            </g>
+            <!-- гербы на стене -->
+            <use href="#crest" x="150" y="180" width="22" height="26"/>
+            <use href="#crest" x="248" y="180" width="22" height="26"/>
+            <!-- факелы -->
+            <circle class="torch" cx="172" cy="214" r="22" fill="url(#torch)"/>
+            <circle class="torch t2" cx="248" cy="214" r="22" fill="url(#torch)"/>
+          </g>
+          <!-- дракон пролетает над королевством -->
+          <g class="dragon"><g class="dragon-body" fill="#090a12">
+            <path d="M0 18c14-4 30-4 46 0l14-6 10 2-8 4 6 4-12-1c-6 4-16 6-28 4-10-1-20-3-28-7z"/>
+            <path class="wing wl" d="M22 16c-2-14 4-26 16-34-2 10 2 18 10 22-6 2-12 6-14 12z"/>
+            <path class="wing wr" d="M30 18c6 10 18 16 30 16-8-4-12-10-12-16z" opacity=".85"/>
+            <path d="M0 18c-10-2-18 0-26 6 8-2 14-2 20 0z"/>
+          </g></g>
+          <!-- летучие мыши над замком -->
+          <g class="bats" fill="#0b0c14">
+            <path class="bat b1" d="M0 0c4-5 8-5 10-1 2-4 6-4 10 1-4-1-7 0-10 3-3-3-6-4-10-3z"/>
+            <path class="bat b2" d="M0 0c4-5 8-5 10-1 2-4 6-4 10 1-4-1-7 0-10 3-3-3-6-4-10-3z"/>
+            <path class="bat b3" d="M0 0c4-5 8-5 10-1 2-4 6-4 10 1-4-1-7 0-10 3-3-3-6-4-10-3z"/>
+          </g>
+          <!-- туман у подножия -->
+          <g class="fog" fill="#9aa3c7">
+            <ellipse cx="300" cy="300" rx="260" ry="16" opacity=".08"/><ellipse cx="900" cy="310" rx="300" ry="18" opacity=".07"/>
+            <ellipse cx="620" cy="318" rx="220" ry="12" opacity=".06"/>
+          </g>
+          <!-- дорога -->
+          <path d="M770 340 L790 304 L830 304 L860 340Z" fill="#2a2420" opacity=".8"/>
+          <!-- искры от факелов -->
+          <g class="embers" fill="#ffb347">
+            <circle cx="732" cy="270" r="1.6"/><circle cx="740" cy="278" r="1.2"/><circle cx="808" cy="272" r="1.4"/><circle cx="816" cy="280" r="1.1"/>
+          </g>
+        </svg>
+        <div class="hero-arch"></div>
+        <div class="hero-text">
+          <img class="hero-logo" src="logo.png" alt="KingMine" draggable="false">
+        </div>
+      </div>
+
+      <div class="home-grid">
+        <article class="parchment news">
+          <h2 class="ribbon">Новости</h2>
+          <div id="newsList" class="news-list"><p class="muted">Загружаем новости…</p></div>
+        </article>
+
+        <aside class="home-side">
+          <div class="plaque" id="serverCard">
+            <h3>Наш сервер</h3>
+            <div class="srv-status" id="srvStatus"><span class="dot"></span><span>Проверяем…</span></div>
+            <div class="srv-motd" id="srvMotd"></div>
+            <button class="btn btn-gold" id="btnJoinServer" disabled>Войти на сервер</button>
+          </div>
+          <div class="plaque">
+            <h3>Профиль</h3>
+            <div class="mini-row"><span>Игрок</span><b id="sideAccount">—</b></div>
+            <div class="mini-row"><span>Версия</span><b id="sideVersion">—</b></div>
+            <div class="mini-row"><span>Память</span><b id="sideMemory">—</b></div>
+            <button class="btn btn-iron" data-open="root">Открыть папку игры</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- АРСЕНАЛ -->
+    <section class="page" id="page-versions">
+      <div class="page-head">
+        <h2 class="ribbon">Версии</h2>
+        <div class="tabs" id="versionTabs">
+          <button class="tab active" data-kind="vanilla">Ванилла</button>
+          <button class="tab" data-kind="fabric">Fabric</button>
+          <button class="tab" data-kind="server">Сборки сервера</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <input class="field" id="versionSearch" placeholder="Поиск версии…">
+        <label class="check"><input type="checkbox" id="chkSnapshots"><span>Снапшоты</span></label>
+      </div>
+      <div class="version-grid" id="versionGrid"></div>
+    </section>
+
+    <!-- СБОРКИ -->
+    <section class="page" id="page-instances">
+      <div class="page-head">
+        <h2 class="ribbon">Сборки</h2>
+        <div class="head-actions">
+          <button class="btn btn-gold" id="btnNewInstance">＋ Создать сборку</button>
+          <button class="btn btn-iron" id="btnBrowsePacks">Скачать сборку</button>
+          <button class="btn btn-iron" id="btnImportPack" title="Файл .mrpack с Modrinth или .zip с CurseForge">Импорт файла</button>
+        </div>
+      </div>
+      <p class="page-lead">Своя папка, своя версия и свои моды у каждой сборки. Как в Prism: создай сборку, добавь моды с Modrinth и играй.</p>
+      <div class="instance-grid" id="instanceGrid"></div>
+    </section>
+
+    <!-- ОДНА СБОРКА -->
+    <section class="page" id="page-instance">
+      <div class="inst-head">
+        <button class="btn btn-iron back" id="instBack">← Сборки</button>
+        <img class="inst-icon big" id="instIcon" alt="">
+        <div class="inst-title">
+          <h2 id="instName"></h2>
+          <small id="instSub"></small>
+        </div>
+        <button class="btn btn-gold btn-play-small" id="instPlay">▶ Играть</button>
+      </div>
+      <div class="tabs inst-tabs" id="instTabs">
+        <button class="tab active" data-tab="mods">Моды</button>
+        <button class="tab" data-tab="resourcepacks">Ресурспаки</button>
+        <button class="tab" data-tab="shaders">Шейдеры</button>
+        <button class="tab" data-tab="saves">Миры</button>
+        <button class="tab" data-tab="screenshots">Скриншоты</button>
+        <button class="tab" data-tab="settings">Настройки</button>
+      </div>
+      <div id="instContentPane">
+        <div class="toolbar">
+          <input class="field" id="contentSearch" placeholder="Поиск…">
+          <button class="btn btn-gold" id="btnAddModrinth">＋ Добавить с Modrinth</button>
+          <button class="btn btn-iron" id="btnAddFile">Добавить файл</button>
+          <button class="btn btn-iron" id="btnUpdates">⟳ Обновить моды</button>
+          <button class="btn btn-iron" id="btnOpenKind">Папка</button>
+        </div>
+        <div class="blocked-box hidden" id="blockedBox"></div>
+        <div class="content-list" id="contentList"></div>
+      </div>
+      <div id="instSettingsPane" class="hidden">
+        <div class="settings-grid">
+          <div class="parchment">
+            <h3>Сборка</h3>
+            <label class="lbl">Название</label>
+            <input class="field" id="instEditName" maxlength="40">
+            <label class="lbl">Память для этой сборки</label>
+            <select class="field" id="instEditMem"></select>
+            <label class="lbl">Загрузчик модов</label>
+            <div class="seg" id="instEditLoader">
+              <button type="button" data-l="vanilla">Ванилла</button><button type="button" data-l="fabric">Fabric</button><button type="button" data-l="quilt">Quilt</button><button type="button" data-l="forge">Forge</button>
+            </div>
+            <div id="instEditLvWrap"><label class="lbl">Версия загрузчика</label><select class="field" id="instEditLv"><option value="">Рекомендуемая (самая свежая)</option></select></div>
+            <p class="hint" id="instLoaderInfo"></p>
+            <label class="lbl">Сразу заходить на сервер</label>
+            <input class="field" id="instEditServer" maxlength="80" placeholder="Например: play.example.com">
+            <p class="hint">Оставь пустым, чтобы попадать в главное меню. Если указан сервер, «Играть» сразу подключит к нему.</p>
+            <div class="row-btns">
+              <button class="btn btn-gold" id="instSave">Сохранить</button>
+              <button class="btn btn-iron" data-inst-folder>Открыть папку</button>
+            </div>
+          </div>
+          <div class="parchment">
+            <h3>Действия</h3>
+            <p class="hint">Копия сохранит все моды, миры и настройки.</p>
+            <div class="row-btns">
+              <button class="btn btn-iron" id="instDuplicate">Сделать копию</button>
+              <button class="btn btn-red" id="instDelete">Удалить сборку</button>
+            </div>
+            <h3 class="h3-gap">Поделиться</h3>
+            <p class="hint">Сохранит сборку в файл .mrpack: его можно отправить другу, и он добавит сборку через «Импорт файла» в KM Launcher, Prism или Modrinth App. Миры в файл не попадают.</p>
+            <div class="row-btns">
+              <button class="btn btn-gold" id="instExport">Сохранить в файл</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- РЫЦАРИ -->
+    <section class="page" id="page-accounts">
+      <div class="page-head"><h2 class="ribbon">Аккаунты</h2></div>
+      <div class="accounts-layout">
+        <div class="account-list" id="accountList"></div>
+        <div class="parchment add-account">
+          <h3>Добавить аккаунт</h3>
+          <div class="lic-block">
+            <div class="lic-title">Лицензия</div>
+            <button class="btn btn-ms btn-big" data-ms-login>
+              <svg viewBox="0 0 21 21" width="22" height="22" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+              Войти через Microsoft
+            </button>
+            <ol class="lic-steps">
+              <li>Нажми кнопку: откроется окно Microsoft.</li>
+              <li>Введи почту и пароль от аккаунта, на котором куплен Minecraft.</li>
+              <li>Готово, лаунчер запомнит вход.</li>
+            </ol>
+            <div class="lic-links">
+              <a href="https://signup.live.com/" target="_blank">Нет аккаунта Microsoft? Создать</a>
+              <a href="https://www.minecraft.net/ru-ru/store/minecraft-java-bedrock-edition-pc" target="_blank">Нет игры? Купить Minecraft</a>
+            </div>
+          </div>
+          <div class="divider"><span>или без лицензии</span></div>
+          <form id="offlineForm" class="offline-form">
+            <input class="field" id="offlineName" maxlength="16" placeholder="Твой ник" autocomplete="off" spellcheck="false">
+            <button class="btn btn-gold" type="submit">Добавить</button>
+          </form>
+          <p class="hint">Офлайн: для одиночной игры и серверов без лицензии.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- КУЗНИЦА -->
+    <section class="page" id="page-settings">
+      <div class="page-head"><h2 class="ribbon">Настройки</h2></div>
+      <div class="settings-grid">
+        <div class="parchment wide">
+          <h3>Тема оформления</h3>
+          <div class="themes" id="themeList"></div>
+          <div class="look-opts">
+            <label class="check dark"><input type="checkbox" id="chkAnim"><span>Анимации</span></label>
+            <label class="check dark"><input type="checkbox" id="chkIntro"><span>Заставка с воротами при запуске</span></label>
+          </div>
+        </div>
+        <div class="parchment">
+          <h3>Память для игры</h3>
+          <div class="ram">
+            <input type="range" id="ramSlider" min="1024" step="512">
+            <output id="ramValue"></output>
+          </div>
+          <p class="hint" id="ramHint"></p>
+        </div>
+        <div class="parchment">
+          <h3>Окно игры</h3>
+          <div class="res-row">
+            <input class="field small" id="resW" type="number" min="640"> <span>×</span>
+            <input class="field small" id="resH" type="number" min="480">
+          </div>
+          <label class="check dark"><input type="checkbox" id="chkFullscreen"><span>Полный экран</span></label>
+          <label class="check dark"><input type="checkbox" id="chkClose"><span>Скрывать лаунчер во время игры</span></label>
+        </div>
+        <div class="parchment">
+          <h3>Дополнительно</h3>
+          <label class="lbl">Аргументы Java</label>
+          <input class="field" id="jvmArgs" placeholder="-XX:+UseG1GC">
+        </div>
+        <div class="parchment">
+          <h3>Папки</h3>
+          <div class="folder-btns">
+            <button class="btn btn-iron" data-open="root">Папка лаунчера</button>
+            <button class="btn btn-iron" data-open="instances">Миры и моды</button>
+            <button class="btn btn-iron" data-open="logs">Логи</button>
+          </div>
+          <p class="hint" id="dirHint"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ХРОНИКИ -->
+    <section class="page" id="page-console">
+      <div class="page-head">
+        <h2 class="ribbon">Консоль</h2>
+        <div class="console-actions">
+          <button class="btn btn-iron" id="btnCopyLog">Копировать</button>
+          <button class="btn btn-iron" id="btnClearLog">Очистить</button>
+          <button class="btn btn-iron" data-open="logs">Папка логов</button>
+        </div>
+      </div>
+      <pre class="console" id="console"></pre>
+    </section>
+  </main>
+</div>
+
+<!-- Нижняя панель запуска -->
+<footer class="playbar">
+  <button class="pb-account" id="pbAccount" title="Сменить аккаунт">
+    <img id="pbAvatar" alt="" src="data:,">
+    <div><small>Игрок</small><b id="pbName">Нет аккаунта</b></div>
+  </button>
+  <button class="pb-version" id="pbVersion" title="Выбрать версию">
+    <small>Версия</small><b id="pbVersionName">—</b>
+  </button>
+  <div class="pb-progress" id="progressBox">
+    <div class="pb-stage" id="progressStage">Готов к игре</div>
+    <div class="bar"><div class="bar-fill" id="progressFill"></div></div>
+  </div>
+  <button class="play" id="btnPlay">
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 1l1.6 3.2V15h2.9v2h-3v3.2L12 23l-1.5-2.8V17h-3v-2h2.9V4.2Z" fill="currentColor"/></svg>
+    <span>Играть</span>
+  </button>
+</footer>
+
+<!-- Первый запуск: выбор входа -->
+<div class="welcome hidden" id="welcome">
+  <div class="welcome-box">
+    <img class="welcome-crest" src="logo.png" alt="KingMine" draggable="false">
+    <h2>Добро пожаловать!</h2>
+    <p>Как будешь играть?</p>
+    <div class="welcome-choices">
+      <button class="choice choice-ms" data-ms-login>
+        <svg viewBox="0 0 21 21" width="40" height="40" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25040"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+        <b>У меня есть лицензия</b>
+        <span>Вход через Microsoft. Скины, сервера с лицензией, Realms.</span>
+      </button>
+      <form class="choice choice-off" id="welcomeOffline">
+        <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path fill="#d4a84b" d="M12 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 12c5.5 0 9 2.7 9 6v2H3v-2c0-3.3 3.5-6 9-6z"/></svg>
+        <b>Играть без лицензии</b>
+        <span>Просто придумай ник: одиночная игра и сервера без лицензии.</span>
+        <div class="choice-row"><input class="field" name="nick" maxlength="16" placeholder="Ник" autocomplete="off" spellcheck="false"><button class="btn btn-gold" type="submit">Играть</button></div>
+      </form>
+    </div>
+    <div class="lic-links center">
+      <a href="https://signup.live.com/" target="_blank">Создать аккаунт Microsoft</a>
+      <a href="https://www.minecraft.net/ru-ru/store/minecraft-java-bedrock-edition-pc" target="_blank">Купить Minecraft</a>
+    </div>
+    <button class="welcome-skip" id="welcomeSkip">Позже</button>
+  </div>
+</div>
+
+<div class="modal hidden" id="modal">
+  <div class="parchment modal-box">
+    <h3 id="modalTitle"></h3>
+    <div id="modalBody"></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
+</div>
+<!-- Каталог Modrinth -->
+<div class="modal hidden" id="browser">
+  <div class="parchment browser-box">
+    <div class="browser-head">
+      <h3 id="browserTitle">Каталог</h3>
+      <div class="tabs src-tabs" id="browserSource">
+        <button class="tab active" data-src="modrinth">Modrinth</button>
+        <button class="tab" data-src="curseforge">CurseForge</button>
+      </div>
+      <button class="tb-btn tb-close" id="browserClose" title="Закрыть">&#x2715;</button>
+    </div>
+    <div class="browser-bar">
+      <input class="field" id="browserSearch" placeholder="Найти…" autocomplete="off" spellcheck="false">
+      <select class="field" id="browserSort">
+        <option value="relevance">Подходящие</option>
+        <option value="downloads">Популярные</option>
+        <option value="follows">Любимые</option>
+        <option value="newest">Новые</option>
+        <option value="updated">Обновлённые</option>
+      </select>
+    </div>
+    <p class="hint" id="browserFor"></p>
+    <div class="browser-list" id="browserList"></div>
+    <button class="btn btn-iron hidden" id="browserMore">Показать ещё</button>
+  </div>
+</div>
+<div class="task hidden" id="task"><span id="taskStage"></span><div class="task-bar"><div id="taskFill"></div></div></div>
+<div class="toasts" id="toasts"></div>
+<canvas id="weather" aria-hidden="true"></canvas>
+
+<script src="app.js"></script>
+</body>
+</html>

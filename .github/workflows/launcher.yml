@@ -1,0 +1,88 @@
+name: KM Launcher
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    tags: ['v*']
+    paths: ['launcher/**', '.github/workflows/launcher.yml', '.github/release-notes.md']
+  pull_request:
+    paths: ['launcher/**', '.github/workflows/launcher.yml', '.github/release-notes.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: launcher
+
+jobs:
+  # Реальный запуск игры на Windows: Java, файлы Mojang, загрузчик, старт клиента
+  smoke:
+    name: Запуск ${{ matrix.kind }} ${{ matrix.version }}
+    runs-on: windows-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { kind: vanilla, version: latest }
+          - { kind: vanilla, version: 1.20.1 }
+          - { kind: vanilla, version: 1.12.2 }
+          - { kind: fabric, version: 1.21.1 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: node scripts/smoke.js ${{ matrix.kind }} ${{ matrix.version }}
+
+  build:
+    name: Установщик Windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+      - run: npm ci
+      - name: Сборка установщика
+        run: npx electron-builder --win nsis --x64 --publish never
+      - name: Снимок интерфейса
+        shell: pwsh
+        run: |
+          $env:KM_SCREENSHOT = "$PWD\ui-home.png#home"
+          $p = Start-Process -FilePath "dist\win-unpacked\KM Launcher.exe" -PassThru
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); throw "Лаунчер не открылся за 90 секунд" }
+          if (-not (Test-Path ui-home.png)) { throw "Снимок не создан" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KM-Launcher-Setup
+          path: |
+            launcher/dist/*.exe
+            launcher/dist/latest.yml
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshot
+          path: launcher/ui-home.png
+      # Релиз: тег v* или коммит с [release] в сообщении. Версия берётся из launcher/package.json.
+      # Лаунчер сам обновляется из последнего релиза (electron-updater читает latest.yml).
+      - name: Публикация в Releases
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $v = "v" + (Get-Content package.json -Raw | ConvertFrom-Json).version
+          gh release view $v --repo ${{ github.repository }} *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Релиз $v уже есть: подними version в launcher/package.json" }
+          $files = @(Get-ChildItem dist/*.exe, dist/*.blockmap, dist/latest.yml | ForEach-Object FullName)
+          gh release create $v @files --repo ${{ github.repository }} --target ${{ github.sha }} --title "KM Launcher $($v.Substring(1))" --notes-file ../.github/release-notes.md
