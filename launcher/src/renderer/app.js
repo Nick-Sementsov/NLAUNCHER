@@ -82,6 +82,7 @@ function fmtMem(mb) {
 function go(page) {
   $$('.banner').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
+  if (page === 'console') requestAnimationFrame(flushLog);
 }
 $$('.banner').forEach(b => b.addEventListener('click', () => go(b.dataset.page)));
 $('#pbAccount').onclick = () => go('accounts');
@@ -464,21 +465,31 @@ $('#jvmArgs').onchange = e => saveSetting({ jvmArgs: e.target.value.trim() });
 
 // ── Консоль ─────────────────────────────────────────────────────
 const consoleEl = $('#console');
-let logBuffer = '';
-let logFlush = null;
+// Игра пишет в лог очень много строк: копим их и показываем раз в 200 мс,
+// а пока «Консоль» закрыта, вообще не трогаем страницу (раньше это и тормозило)
+let logText = '';
+let logPending = '';
+let logTimer = null;
+let logDirty = false;
 function appendLog(text) {
-  logBuffer += text;
-  if (logFlush) return;
-  logFlush = requestAnimationFrame(() => {
-    const atBottom = consoleEl.scrollTop + consoleEl.clientHeight >= consoleEl.scrollHeight - 30;
-    consoleEl.textContent = (consoleEl.textContent + logBuffer).slice(-200000);
-    logBuffer = '';
-    logFlush = null;
-    if (atBottom) consoleEl.scrollTop = consoleEl.scrollHeight;
-  });
+  logPending += text;
+  if (!logTimer) logTimer = setTimeout(flushLog, 200);
 }
-$('#btnCopyLog').onclick = () => { navigator.clipboard.writeText(consoleEl.textContent); toast('Скопировано'); };
-$('#btnClearLog').onclick = () => { consoleEl.textContent = ''; };
+function flushLog() {
+  clearTimeout(logTimer);
+  logTimer = null;
+  const add = logPending;
+  logPending = '';
+  logText += add;
+  if (logText.length > 300000) { logText = logText.slice(-200000); logDirty = true; }
+  if (!$('#page-console').classList.contains('active')) { if (add) logDirty = true; return; }
+  const atBottom = consoleEl.scrollTop + consoleEl.clientHeight >= consoleEl.scrollHeight - 30;
+  if (logDirty) { consoleEl.textContent = logText; logDirty = false; }
+  else if (add) consoleEl.appendChild(document.createTextNode(add));
+  if (atBottom || !consoleEl.dataset.seen) { consoleEl.scrollTop = consoleEl.scrollHeight; consoleEl.dataset.seen = '1'; }
+}
+$('#btnCopyLog').onclick = () => { flushLog(); navigator.clipboard.writeText(logText); toast('Скопировано'); };
+$('#btnClearLog').onclick = () => { logText = ''; logPending = ''; logDirty = false; consoleEl.textContent = ''; };
 
 // ── Запуск ──────────────────────────────────────────────────────
 function setProgress(stage, percent) {
@@ -1246,7 +1257,19 @@ const weather = (() => {
     purple: { n: 45, make: () => ({ r: .8 + Math.random() * 1.6, vx: (Math.random() - .5) * .25, vy: -.1 - Math.random() * .25, c: Math.random() < .5 ? '195,139,255' : '125,255,200', tw: true, glow: true }) },
     night:  { n: 110, make: () => ({ rain: true, r: 10 + Math.random() * 10, vx: -1.2, vy: 9 + Math.random() * 5, c: '170,185,220' }) },
   };
-  let parts = [], kind = 'royal', run = true, t = 0;
+  let parts = [], kind = 'royal', run = true, t = 0, loop = null, last = 0;
+  // светящиеся точки рисуем готовой картинкой: shadowBlur на каждую частицу сильно грузил видеокарту
+  const sprites = {};
+  function sprite(c) {
+    if (sprites[c]) return sprites[c];
+    const sp = document.createElement('canvas');
+    sp.width = sp.height = 32;
+    const g = sp.getContext('2d');
+    const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, `rgba(${c},1)`); gr.addColorStop(.25, `rgba(${c},.9)`); gr.addColorStop(1, `rgba(${c},0)`);
+    g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+    return (sprites[c] = sp);
+  }
   function size() { cv.width = innerWidth; cv.height = innerHeight; }
   function spawn(p, anywhere) {
     const k = KINDS[kind];
@@ -1261,14 +1284,19 @@ const weather = (() => {
     kind = KINDS[k] ? k : 'royal';
     parts = Array.from({ length: KINDS[kind].n }, () => spawn({}, true));
   }
-  function frame() {
-    t += 1;
+  function frame(now) {
+    loop = requestAnimationFrame(frame);
+    // 30 кадров в секунду хватает для частиц и вдвое легче
+    if (now - last < 33) return;
+    const step = Math.min(3, (now - last) / 16.7 || 1);
+    last = now;
+    t += step;
     ctx.clearRect(0, 0, cv.width, cv.height);
-    if (run) for (const p of parts) {
-      p.x += p.vx + (p.sway ? Math.sin((t + p.sway * 50) / 40) * .4 : 0);
-      p.y += p.vy;
-      if (p.rot !== undefined) p.rot += p.vr;
-      if (p.life) p.a -= .004;
+    for (const p of parts) {
+      p.x += (p.vx + (p.sway ? Math.sin((t + p.sway * 50) / 40) * .4 : 0)) * step;
+      p.y += p.vy * step;
+      if (p.rot !== undefined) p.rot += p.vr * step;
+      if (p.life) p.a -= .004 * step;
       if (p.y < -30 || p.y > cv.height + 30 || p.x < -30 || p.x > cv.width + 30 || p.a <= 0) spawn(p);
       let a = p.a;
       if (p.tw) a *= .55 + .45 * Math.sin(t / 25 + p.ph);
@@ -1281,19 +1309,32 @@ const weather = (() => {
         ctx.fillStyle = `rgb(${p.c})`;
         ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r / 2.2, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
+      } else if (p.glow) {
+        const d = p.r * 6;
+        ctx.drawImage(sprite(p.c), p.x - d / 2, p.y - d / 2, d, d);
       } else {
-        if (p.glow) { ctx.shadowBlur = 8; ctx.shadowColor = `rgb(${p.c})`; }
         ctx.fillStyle = `rgb(${p.c})`;
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0;
       }
     }
-    requestAnimationFrame(frame);
+  }
+  // крутим только когда лаунчер на экране и в фокусе: пока идёт игра, он не тратит видеокарту
+  function update() {
+    const want = run && !document.hidden && document.hasFocus();
+    if (want && !loop) { last = 0; loop = requestAnimationFrame(frame); }
+    if (!want && loop) { cancelAnimationFrame(loop); loop = null; }
   }
   addEventListener('resize', size);
-  size(); set(document.documentElement.dataset.theme); frame();
-  return { set, enable: on => { run = on; cv.style.display = on ? '' : 'none'; } };
+  addEventListener('focus', update);
+  addEventListener('blur', update);
+  document.addEventListener('visibilitychange', update);
+  size(); set(document.documentElement.dataset.theme); update();
+  return { set, enable: on => { run = on; cv.style.display = on ? '' : 'none'; if (!on) ctx.clearRect(0, 0, cv.width, cv.height); update(); } };
 })();
+
+// CSS-анимации тоже ставим на паузу, когда окно не в фокусе
+addEventListener('blur', () => document.body.classList.add('idle'));
+addEventListener('focus', () => document.body.classList.remove('idle'));
 
 // ── Искры над нижней панелью ─────────────────────────────────────
 (() => {
