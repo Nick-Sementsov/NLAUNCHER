@@ -1,6 +1,6 @@
 'use strict';
 // Каталог Modrinth: поиск модов, ресурспаков, шейдеров и сборок
-const { getJson } = require('./net');
+const { getJson, postJson } = require('./net');
 
 const API = 'https://api.modrinth.com/v2';
 
@@ -53,4 +53,14 @@ function primaryFile(v) {
   return v.files.find(f => f.primary) || v.files[0];
 }
 
-module.exports = { search, project, versions, version, primaryFile };
+// Какие версии Modrinth соответствуют файлам (по sha1). Ответ: { sha1: версия }
+function versionsByHash(hashes) {
+  return postJson(`${API}/version_files`, { hashes, algorithm: 'sha1' });
+}
+
+// Самые свежие версии тех же проектов для нужной игры и загрузчика. Ответ: { sha1: версия }
+function latestByHash(hashes, { loaders, mc }) {
+  return postJson(`${API}/version_files/update`, { hashes, algorithm: 'sha1', loaders, game_versions: [mc] });
+}
+
+module.exports = { search, project, versions, version, primaryFile, versionsByHash, latestByHash, LOADER_TAG };

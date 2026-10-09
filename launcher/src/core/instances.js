@@ -6,11 +6,12 @@ const crypto = require('crypto');
 const AdmZip = require('adm-zip');
 const paths = require('./paths');
 const { download } = require('./net');
+const versions = require('./versions');
 const modrinth = require('./modrinth');
 const curseforge = require('./curseforge');
 
 const META = 'instance.json';
-const KINDS = { mods: 'mods', resourcepacks: 'resourcepacks', shaders: 'shaderpacks', saves: 'saves' };
+const KINDS = { mods: 'mods', resourcepacks: 'resourcepacks', shaders: 'shaderpacks', saves: 'saves', screenshots: 'screenshots' };
 const TYPE_DIR = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks' };
 const LOADERS = ['vanilla', 'fabric', 'quilt', 'forge'];
 
@@ -54,7 +55,7 @@ function summary(id, meta) {
     id, name: meta.name, mc: meta.mc, loader: meta.loader, loaderVersion: meta.loaderVersion || '',
     loaderResolved: meta.loaderVersion || meta.loaderResolved || '',
     icon: meta.icon || '', created: meta.created, lastPlayed: meta.lastPlayed || null,
-    memoryMb: meta.memoryMb || 0, source: meta.source || null,
+    memoryMb: meta.memoryMb || 0, source: meta.source || null, server: meta.server || '',
     mods: countFiles(path.join(d, 'mods'), /\.jar$/i),
     blocked: (meta.blocked || []).filter(b => !fs.existsSync(path.join(d, b.folder, b.fileName))),
   };
@@ -90,7 +91,8 @@ function create({ name, mc, loader = 'vanilla', loaderVersion = '', icon = '', s
 function update(id, patch) {
   const meta = readMeta(id);
   if (!meta) throw new Error('Сборка не найдена');
-  const allowed = ['name', 'mc', 'loader', 'loaderVersion', 'loaderResolved', 'memoryMb', 'lastPlayed', 'icon'];
+  const allowed = ['name', 'mc', 'loader', 'loaderVersion', 'loaderResolved', 'memoryMb', 'lastPlayed', 'icon', 'server'];
+  if ('server' in patch) patch = { ...patch, server: cleanServer(patch.server) };
   if ('loader' in patch && patch.loader !== meta.loader && !('loaderVersion' in patch)) patch = { ...patch, loaderVersion: '' };
   for (const k of allowed) if (k in patch) meta[k] = patch[k];
   if ('loaderVersion' in patch) { meta.loaderPinned = !!patch.loaderVersion; meta.loaderResolved = ''; }
@@ -98,6 +100,14 @@ function update(id, patch) {
   if (!LOADERS.includes(meta.loader)) throw new Error('Неизвестный загрузчик');
   writeMeta(id, meta);
   return get(id);
+}
+
+// Адрес сервера для автовхода: «play.example.com» или «1.2.3.4:25566»
+function cleanServer(v) {
+  v = String(v || '').trim().replace(/^minecraft:\/\//i, '');
+  if (!v) return '';
+  if (!/^[a-zA-Z0-9.-]+(:\d{1,5})?$/.test(v)) throw new Error('Адрес сервера выглядит неправильно. Пример: play.example.com или 1.2.3.4:25565');
+  return v;
 }
 
 function remove(id) {
@@ -151,6 +161,10 @@ function content(id, kind) {
       if (st.isDirectory()) items.push({ file: f, name: f, enabled: true, size: 0, mtime: st.mtimeMs });
       continue;
     }
+    if (kind === 'screenshots') {
+      if (/\.png$/i.test(f)) items.push({ file: f, name: f, enabled: true, size: st.size, mtime: st.mtimeMs, path: full });
+      continue;
+    }
     const enabled = !/\.disabled$/i.test(f);
     const base = f.replace(/\.disabled$/i, '');
     if (kind === 'mods' && !/\.jar$/i.test(base)) continue;
@@ -169,6 +183,7 @@ function content(id, kind) {
     });
   }
   if (kind === 'mods') try { fs.writeFileSync(cacheFile, JSON.stringify(cache)); } catch { /* не страшно */ }
+  if (kind === 'screenshots' || kind === 'saves') return items.sort((a, b) => b.mtime - a.mtime);
   return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -451,7 +466,160 @@ function importPack(file, onProgress) {
   throw new Error('Это не сборка: нужен файл .mrpack с Modrinth или .zip с CurseForge');
 }
 
+// ── Обновление модов ─────────────────────────────────────────────
+// Modrinth узнаёт мод по sha1 файла, поэтому так находятся обновления и для модов,
+// поставленных вручную или с CurseForge, если тот же файл лежит на Modrinth
+function hashFolder(id, folder, re) {
+  const d = path.join(dir(id), folder);
+  const out = {};
+  let files = [];
+  try { files = fs.readdirSync(d); } catch { return out; }
+  for (const f of files) {
+    const full = path.join(d, f);
+    if (re.test(f) && fs.statSync(full).isFile()) out[sha1(full)] = f;
+  }
+  return out;
+}
+
+async function checkUpdates(id) {
+  const meta = readMeta(id);
+  if (!meta) throw new Error('Сборка не найдена');
+  if (meta.loader === 'vanilla') return [];
+  const byHash = hashFolder(id, 'mods', /\.jar(\.disabled)?$/i);
+  const hashes = Object.keys(byHash);
+  if (!hashes.length) return [];
+  const loaders = meta.loader === 'quilt' ? ['quilt', 'fabric'] : [modrinth.LOADER_TAG[meta.loader]];
+  let latest;
+  try { latest = await modrinth.latestByHash(hashes, { loaders, mc: meta.mc }); }
+  catch (e) { throw new Error('Modrinth не ответил, попробуй позже (' + e.message + ')'); }
+  const out = [];
+  for (const [hash, v] of Object.entries(latest || {})) {
+    const file = byHash[hash];
+    const pf = v && modrinth.primaryFile(v);
+    if (!file || !pf || pf.hashes?.sha1 === hash) continue;
+    const base = file.replace(/\.disabled$/i, '');
+    const known = meta.files?.[`mods/${base}`];
+    const name = known?.title || readModInfo(path.join(dir(id), 'mods', file)).name || base.replace(/\.jar$/i, '');
+    out.push({ file, name, icon: known?.icon || '', from: known?.version || readModInfo(path.join(dir(id), 'mods', file)).version || '',
+      to: v.version_number, projectId: v.project_id, versionId: v.id, fileName: pf.filename, url: pf.url, sha1: pf.hashes?.sha1 });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function applyUpdates(id, list, onProgress) {
+  const meta = readMeta(id);
+  if (!meta) throw new Error('Сборка не найдена');
+  const d = path.join(dir(id), 'mods');
+  meta.files = meta.files || {};
+  let done = 0;
+  const failed = [];
+  for (const u of list || []) {
+    onProgress?.({ stage: `Обновляем ${u.name}`, percent: Math.round(done / list.length * 100) });
+    try {
+      const old = safeFile(id, 'mods', u.file);
+      const fileName = path.basename(String(u.fileName));
+      if (!/\.jar$/i.test(fileName) || !/^https:\/\/cdn\.modrinth\.com\//.test(u.url)) throw new Error('неверный файл');
+      const disabled = /\.disabled$/i.test(u.file);
+      const tmp = path.join(d, fileName + '.km-new');
+      await download(u.url, tmp);
+      if (u.sha1 && sha1(tmp) !== u.sha1) { fs.rmSync(tmp, { force: true }); throw new Error('файл скачался с ошибкой'); }
+      const oldBase = u.file.replace(/\.disabled$/i, '');
+      const prev = meta.files[`mods/${oldBase}`];
+      fs.rmSync(old, { force: true });
+      delete meta.files[`mods/${oldBase}`];
+      fs.renameSync(tmp, path.join(d, fileName + (disabled ? '.disabled' : '')));
+      meta.files[`mods/${fileName}`] = { ...(prev || {}), projectId: u.projectId, versionId: u.versionId, title: prev?.title || u.name,
+        icon: prev?.icon || u.icon || '', version: u.to, source: 'modrinth' };
+      writeMeta(id, meta);
+    } catch (e) { failed.push(`${u.name}: ${e.message}`); }
+    done++;
+  }
+  onProgress?.({ stage: 'Моды обновлены', percent: 100 });
+  return { updated: done - failed.length, failed };
+}
+
+// ── Экспорт сборки в .mrpack, чтобы поделиться с друзьями ────────
+// Файлы, которые есть на Modrinth, записываются ссылками (файл получается маленьким),
+// остальное (моды вручную, конфиги, настройки) кладётся внутрь как overrides
+const EXPORT_FOLDERS = [['mods', /\.jar$/i], ['resourcepacks', /\.zip$/i], ['shaderpacks', /\.zip$/i]];
+const EXPORT_EXTRA = ['config', 'defaultconfigs', 'kubejs', 'options.txt', 'servers.dat'];
+const LOADER_DEP = { fabric: 'fabric-loader', quilt: 'quilt-loader', forge: 'forge' };
+
+async function exportMrpack(id, dest, onProgress) {
+  const meta = readMeta(id);
+  if (!meta) throw new Error('Сборка не найдена');
+  const root = dir(id);
+  const deps = { minecraft: meta.mc };
+  if (meta.loader !== 'vanilla') {
+    let lv = meta.loaderVersion || meta.loaderResolved;
+    if (!lv) lv = await versions.recommendedLoader(meta.loader, meta.mc);
+    if (!lv) throw new Error('Не удалось узнать версию загрузчика: запусти сборку один раз и попробуй снова');
+    deps[LOADER_DEP[meta.loader]] = lv;
+  }
+  onProgress?.({ stage: 'Собираем список файлов…', percent: 5 });
+  const local = {};
+  for (const [folder, re] of EXPORT_FOLDERS) {
+    for (const [hash, f] of Object.entries(hashFolder(id, folder, re))) local[hash] = `${folder}/${f}`;
+  }
+  let remote = {};
+  const hashes = Object.keys(local);
+  if (hashes.length) {
+    onProgress?.({ stage: 'Ищем файлы на Modrinth…', percent: 20 });
+    try { remote = await modrinth.versionsByHash(hashes) || {}; } catch { remote = {}; } // без сети всё уйдёт внутрь файла
+  }
+  const zip = new AdmZip();
+  const files = [];
+  let inside = 0;
+  for (const [hash, rel] of Object.entries(local)) {
+    const full = path.join(root, rel);
+    const f = remote[hash]?.files?.find(x => x.hashes?.sha1 === hash);
+    if (f?.url) {
+      const data = fs.readFileSync(full);
+      files.push({
+        path: rel,
+        hashes: { sha1: hash, sha512: crypto.createHash('sha512').update(data).digest('hex') },
+        env: { client: 'required', server: rel.startsWith('mods/') ? 'required' : 'unsupported' },
+        downloads: [f.url], fileSize: data.length,
+      });
+    } else {
+      zip.addLocalFile(full, `overrides/${path.dirname(rel)}`);
+      inside++;
+    }
+  }
+  onProgress?.({ stage: 'Добавляем настройки и конфиги…', percent: 70 });
+  for (const extra of EXPORT_EXTRA) {
+    const full = path.join(root, extra);
+    if (!fs.existsSync(full)) continue;
+    if (fs.statSync(full).isDirectory()) zip.addLocalFolder(full, `overrides/${extra}`);
+    else zip.addLocalFile(full, 'overrides');
+  }
+  const index = {
+    formatVersion: 1, game: 'minecraft', versionId: new Date().toISOString().slice(0, 10),
+    name: meta.name, summary: 'Сборка из KM Launcher', files, dependencies: deps,
+  };
+  zip.addFile('modrinth.index.json', Buffer.from(JSON.stringify(index, null, 2)));
+  onProgress?.({ stage: 'Сохраняем файл…', percent: 90 });
+  zip.writeZip(dest);
+  onProgress?.({ stage: 'Готово', percent: 100 });
+  return { file: dest, linked: files.length, inside, size: fs.statSync(dest).size };
+}
+
+// ── Резервная копия мира ─────────────────────────────────────────
+function backupWorld(id, world) {
+  const src = safeFile(id, 'saves', world);
+  if (!fs.existsSync(src) || !fs.statSync(src).isDirectory()) throw new Error('Мир не найден');
+  const out = path.join(dir(id), 'backups');
+  fs.mkdirSync(out, { recursive: true });
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+  const file = path.join(out, `${world.replace(/[^\p{L}\p{N} ._-]/gu, '_')} ${stamp}.zip`);
+  const zip = new AdmZip();
+  zip.addLocalFolder(src, world);
+  zip.writeZip(file);
+  return { file, size: fs.statSync(file).size };
+}
+
 module.exports = {
   dir, list, get, create, update, remove, duplicate,
   content, toggle, removeFile, addFiles, installProject, installMrpack, installCfPack, importPack, KINDS,
+  checkUpdates, applyUpdates, exportMrpack, backupWorld,
 };

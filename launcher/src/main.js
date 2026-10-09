@@ -1,5 +1,6 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, protocol, net } = require('electron');
+const { pathToFileURL } = require('url');
 const path = require('path');
 const os = require('os');
 
@@ -20,6 +21,9 @@ const curseforge = require('./core/curseforge');
 const { ping } = require('./core/ping');
 
 let win;
+
+// kmshot://shot/<сборка>/<файл> — превью скриншотов (только из папок screenshots)
+protocol.registerSchemesAsPrivileged([{ scheme: 'kmshot', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 function send(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
@@ -71,6 +75,11 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
+  protocol.handle('kmshot', req => {
+    const [id, file] = new URL(req.url).pathname.split('/').filter(Boolean).map(decodeURIComponent);
+    if (!/^[a-z0-9-]+$/.test(id || '') || !/^[^\\/]+\.png$/i.test(file || '')) return new Response('', { status: 404 });
+    return net.fetch(pathToFileURL(path.join(paths.instances, id, 'screenshots', file)).toString());
+  });
   createWindow();
   setupUpdater();
 });
@@ -203,6 +212,31 @@ handle('modpack:import', async () => {
   const r = await dialog.showOpenDialog(win, { title: 'Импорт сборки', properties: ['openFile'], filters: [{ name: 'Сборка Modrinth или CurseForge', extensions: ['mrpack', 'zip'] }] });
   if (r.canceled || !r.filePaths.length) return null;
   return instances.importPack(r.filePaths[0], p => send('content:progress', p));
+});
+handle('instances:checkUpdates', id => instances.checkUpdates(id));
+handle('instances:applyUpdates', (id, list) => instances.applyUpdates(id, list, p => send('content:progress', p)));
+handle('instances:backupWorld', (id, world) => instances.backupWorld(id, world));
+handle('instances:export', async id => {
+  const inst = instances.get(id);
+  const name = inst.name.replace(/[\\/:*?"<>|]+/g, '_');
+  const r = await dialog.showSaveDialog(win, {
+    title: 'Сохранить сборку', defaultPath: path.join(app.getPath('desktop'), `${name}.mrpack`),
+    filters: [{ name: 'Сборка Modrinth', extensions: ['mrpack'] }],
+  });
+  if (r.canceled || !r.filePath) return null;
+  return instances.exportMrpack(id, r.filePath, p => send('content:progress', p));
+});
+handle('file:open', file => {
+  // открываем только скриншоты и копии миров из папок сборок
+  const full = path.resolve(String(file));
+  const rel = path.relative(paths.instances, full).split(path.sep);
+  if (rel[0] === '..' || path.isAbsolute(rel.join(path.sep)) || !['screenshots', 'backups'].includes(rel[1])) throw new Error('Нельзя открыть этот файл');
+  return shell.openPath(full);
+});
+handle('file:show', file => {
+  const full = path.resolve(String(file));
+  if (path.relative(paths.instances, full).startsWith('..')) throw new Error('Нельзя открыть этот файл');
+  shell.showItemInFolder(full);
 });
 handle('modrinth:search', opts => modrinth.search(opts || {}));
 handle('curseforge:search', opts => curseforge.search(opts || {}));

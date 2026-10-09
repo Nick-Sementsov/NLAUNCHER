@@ -44,7 +44,13 @@ contextBridge.exposeInMainWorld('km', {
     removeFile: (id, kind, file) => call('instances:removeFile', id, kind, file),
     addFiles: (id, kind) => call('instances:addFiles', id, kind),
     install: (id, projectId, type, source) => call('instances:install', id, projectId, type, source),
+    checkUpdates: id => call('instances:checkUpdates', id),
+    applyUpdates: (id, list) => call('instances:applyUpdates', id, list),
+    exportPack: id => call('instances:export', id),
+    backupWorld: (id, world) => call('instances:backupWorld', id, world),
   },
+  openFile: file => call('file:open', file),
+  showFile: file => call('file:show', file),
   modpack: {
     install: ref => call('modpack:install', ref),
     import: () => call('modpack:import'),
