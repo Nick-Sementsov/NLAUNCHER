@@ -932,3 +932,4 @@ body.theme-switch * { transition: background-color .5s, border-color .5s, color 
 .upd-row b { display: block; }
 .upd-row small { color: var(--muted); font-size: 12px; }
 .upd-row small em { color: var(--gold-light); font-style: normal; }
+.h3-gap { margin-top: 22px; }
