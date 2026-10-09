@@ -933,3 +933,28 @@ body.theme-switch * { transition: background-color .5s, border-color .5s, color 
 .upd-row small { color: var(--muted); font-size: 12px; }
 .upd-row small em { color: var(--gold-light); font-style: normal; }
 .h3-gap { margin-top: 22px; }
+
+/* окно зависимостей мода; оно открывается поверх каталога */
+#modal { z-index: 55; }
+.dep-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; max-height: 46vh; overflow: auto; }
+.dep-row {
+  display: grid; grid-template-columns: 20px 34px 1fr; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 3px;
+  background: rgba(0,0,0,.08); border: 1px solid rgba(0,0,0,.12); cursor: pointer;
+  animation: rowIn .35s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 40ms); transition: background .15s;
+}
+.dep-row:hover { background: rgba(0,0,0,.14); }
+.dep-row .inst-icon.small { width: 34px; height: 34px; }
+.dep-row b { font-weight: 700; }
+.dep-row em { font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; background: rgba(0,0,0,.12); }
+.dep-row.req em { background: var(--gules); color: #fff; }
+.dep-row small { display: block; font-size: 12px; opacity: .75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-warn { color: var(--gules); font-weight: 700; }
+
+/* окно обновления лаунчера */
+.upd-head { display: grid; grid-template-columns: 54px 1fr; gap: 14px; align-items: center; }
+.upd-crest { width: 54px; height: 64px; animation: crestIn .6s cubic-bezier(.2,1.3,.4,1) both, glow 2.4s ease-in-out .6s infinite alternate; }
+.upd-notes { margin: 12px 0 0 20px; display: flex; flex-direction: column; gap: 4px; }
+.upd-notes li { animation: rowIn .35s cubic-bezier(.2,.8,.2,1) both; }
+.upd-notes li:nth-child(2) { animation-delay: .06s; } .upd-notes li:nth-child(3) { animation-delay: .12s; }
+.upd-notes li:nth-child(4) { animation-delay: .18s; } .upd-notes li:nth-child(5) { animation-delay: .24s; }
+.upd-bar { margin-top: 12px; }

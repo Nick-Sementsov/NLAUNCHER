@@ -43,7 +43,8 @@ contextBridge.exposeInMainWorld('km', {
     toggle: (id, kind, file) => call('instances:toggle', id, kind, file),
     removeFile: (id, kind, file) => call('instances:removeFile', id, kind, file),
     addFiles: (id, kind) => call('instances:addFiles', id, kind),
-    install: (id, projectId, type, source) => call('instances:install', id, projectId, type, source),
+    install: (id, projectId, type, source, deps) => call('instances:install', id, projectId, type, source, deps),
+    plan: (id, projectId, type, source) => call('instances:plan', id, projectId, type, source),
     checkUpdates: id => call('instances:checkUpdates', id),
     applyUpdates: (id, list) => call('instances:applyUpdates', id, list),
     exportPack: id => call('instances:export', id),
@@ -59,6 +60,8 @@ contextBridge.exposeInMainWorld('km', {
   curseforge: { search: opts => call('curseforge:search', opts) },
   loaders: (kind, mc) => call('loaders:list', kind, mc),
   installUpdate: () => call('update:install'),
+  downloadUpdate: () => call('update:download'),
+  updateState: () => call('update:state'),
   on: {
     progress: cb => on('launch:progress', cb),
     log: cb => on('launch:log', cb),

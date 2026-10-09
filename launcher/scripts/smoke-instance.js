@@ -100,6 +100,14 @@ async function build() {
     const left = await instances.checkUpdates(inst.id);
     if (left.length) throw new Error('после обновления ещё остались обновления: ' + left.map(u => u.name).join(', '));
     console.log(`Обновлено модов: ${r.updated}`);
+    // перед установкой лаунчер показывает зависимости: у Iris обязательный Sodium, он уже стоит
+    const plan = await instances.planInstall(inst.id, 'iris', 'mod');
+    for (const d of plan.deps) console.log(`  зависимость Iris: ${d.title} (${d.required ? 'обязательно' : 'по желанию'}${d.installed ? ', уже стоит' : ''})`);
+    if (!plan.deps.some(d => d.required && /sodium/i.test(d.title) && d.installed)) throw new Error('у Iris не нашёлся обязательный Sodium');
+    const before = instances.content(inst.id, 'mods').length;
+    await instances.installProject(inst.id, 'iris', 'mod', onProgress, 'modrinth', new Set(), []);
+    if (instances.content(inst.id, 'mods').length !== before + 1) throw new Error('с пустым выбором зависимостей поставилось не ровно 1 мод');
+    console.log('Iris поставлен без лишних зависимостей');
     const out = path.join(os.tmpdir(), 'km-smoke.mrpack');
     const ex = await instances.exportMrpack(inst.id, out, onProgress);
     console.log(`Экспорт: ссылками ${ex.linked}, внутри ${ex.inside}, ${ex.size} байт`);
