@@ -7,8 +7,6 @@
 
 <p align="center"><a href="https://github.com/Nick-Sementsov/NLAUNCHER/releases/latest"><b>⬇ Скачать последнюю версию</b></a></p>
 
-![Главная](docs/glavnaya.jpg)
-
 ## Как установить
 
 1. Открой [страницу загрузки](https://github.com/Nick-Sementsov/NLAUNCHER/releases/latest) и скачай файл `KM-Launcher-Setup-….exe`.
@@ -31,10 +29,6 @@
 - **Скриншоты и миры.** Все снимки (F2) прямо в лаунчере, копии миров одной кнопкой.
 - **Автовход на сервер** для любой сборки.
 - **Удобства.** Сколько памяти дать игре, размер окна, темы оформления, консоль игры и подсказка, если игра вылетела.
-
-![Установка мода](docs/ustanovka-moda.jpg)
-
-![Сборка](docs/sborka.jpg)
 
 ## Если что-то не так
 
