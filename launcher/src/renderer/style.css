@@ -142,7 +142,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .page.active { display: block; }
 #page-home { padding: 0 0 28px; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes pageIn { from { opacity: 0; transform: translateX(18px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes pageIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
 
 /* ── Боковое меню: геральдические знамёна ─────────────────────── */
 .sidebar {
@@ -455,7 +455,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .play.busy { filter: grayscale(.4); }
 
 /* ── Окно и уведомления ──────────────────────────────────────── */
-.modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(5,5,8,.7); backdrop-filter: blur(2px); }
+.modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(5,5,8,.78); }
 .modal-box { width: min(640px, 90vw); max-height: 80vh; overflow: auto; }
 .modal-box pre { margin-top: 10px; max-height: 300px; overflow: auto; font: 12px/1.4 Consolas, monospace; background: rgba(0,0,0,.08); padding: 10px; border-radius: 3px; white-space: pre-wrap; user-select: text; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; position: relative; }
@@ -593,8 +593,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .page { position: relative; z-index: 1; }
 
 /* герб в заголовке ловит блик */
-.tb-crest { animation: crestShine 6s ease-in-out infinite; }
-@keyframes crestShine { 0%, 85%, 100% { filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); transform: none; } 90% { filter: drop-shadow(0 0 8px rgba(242,210,124,.9)); transform: scale(1.08); } }
+.tb-crest { animation: crestShine 6s ease-in-out infinite; will-change: transform; }
+@keyframes crestShine { 0%, 85%, 100% { transform: none; } 90% { transform: scale(1.08); } }
 
 /* кнопки: волна от нажатия и подъём */
 .btn { position: relative; overflow: hidden; transition: transform .15s, filter .15s, box-shadow .2s; }
@@ -972,9 +972,12 @@ body.theme-switch * { transition: background-color .5s, border-color .5s, color 
 .mrow-prog .bar-fill { height: 100%; transition: width .25s ease; }
 
 /* логотип KingMine: внизу меню и на главной вместо надписей */
-.sb-logo { display: block; width: 128px; margin: 0 auto 6px; filter: drop-shadow(0 3px 5px rgba(0,0,0,.6)); animation: logoBreath 5s ease-in-out infinite; }
+.sb-logo { display: block; width: 128px; margin: 0 auto 6px; filter: drop-shadow(0 3px 5px rgba(0,0,0,.6)); }
 @keyframes logoBreath { 0%,100% { filter: drop-shadow(0 3px 5px rgba(0,0,0,.6)); } 50% { filter: drop-shadow(0 0 10px rgba(242,210,124,.45)); } }
 .hero-text { bottom: 18px; }
 .hero-logo { display: block; height: 150px; width: auto; filter: drop-shadow(0 8px 14px rgba(0,0,0,.75));
   animation: crestIn 1s cubic-bezier(.2,.8,.2,1) .1s both, heroFloat 4s ease-in-out 1.1s infinite alternate; }
 @keyframes heroFloat { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+
+/* окно не в фокусе (например, идёт игра): бесконечные анимации стоят на паузе */
+body.idle *, body.idle *::before, body.idle *::after { animation-play-state: paused !important; }

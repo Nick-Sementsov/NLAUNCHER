@@ -64,7 +64,7 @@ body[data-art="icon"] #icon, body[data-art="sidebar"] #sidebar, body[data-art="u
   </svg>
   <img src="../../src/renderer/logo.png" style="position:absolute;left:8px;top:26px;width:148px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))" alt="">
   <div class="t">KM Launcher</div>
-  <div class="s" id="sub">Врата королевства</div>
+  <div class="s" id="sub">Лаунчер для Minecraft</div>
   <div class="frame"></div>
 </div>
 
@@ -75,6 +75,6 @@ body[data-art="icon"] #icon, body[data-art="sidebar"] #sidebar, body[data-art="u
 <script>
 const art = new URLSearchParams(location.search).get('art');
 document.body.dataset.art = art;
-if (art === 'unsidebar') document.getElementById('sub').textContent = 'До новых походов';
+if (art === 'unsidebar') document.getElementById('sub').textContent = 'Удаление';
 </script>
 </body></html>
