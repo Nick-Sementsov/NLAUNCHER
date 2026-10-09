@@ -568,7 +568,7 @@ km.on.update(u => {
 // ── Сборки (как в Prism) ────────────────────────────────────────
 const LOADER_NAMES = { vanilla: 'Ванилла', fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge' };
 const KIND_TYPE = { mods: 'mod', resourcepacks: 'resourcepack', shaders: 'shader' };
-const KIND_NAMES = { mods: 'моды', resourcepacks: 'ресурспаки', shaders: 'шейдеры', saves: 'миры' };
+const KIND_NAMES = { mods: 'моды', resourcepacks: 'ресурспаки', shaders: 'шейдеры', saves: 'миры', screenshots: 'скриншоты' };
 const CRATE = 'data:image/svg+xml;utf8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">' +
   '<rect width="16" height="16" fill="#7a5230"/><rect x="1" y="1" width="14" height="14" fill="#a8763f"/>' +
@@ -588,7 +588,7 @@ function instIcon(img, url) {
 function instSub(i) {
   const lv = i.loaderVersion || i.loaderResolved;
   const loader = i.loader === 'vanilla' ? '' : ` · ${LOADER_NAMES[i.loader]}${lv ? ' ' + lv : ''}`;
-  return `Minecraft ${i.mc}${loader}`;
+  return `Minecraft ${i.mc}${loader}${i.server ? ` · вход на ${i.server}` : ''}`;
 }
 
 function fmtNum(n) {
@@ -724,8 +724,10 @@ function setInstTab(tab) {
   $('#instContentPane').classList.toggle('hidden', settings);
   $('#instSettingsPane').classList.toggle('hidden', !settings);
   if (settings) return renderInstSettings();
-  $('#btnAddModrinth').classList.toggle('hidden', tab === 'saves');
-  $('#btnAddFile').classList.toggle('hidden', tab === 'saves');
+  const noAdd = tab === 'saves' || tab === 'screenshots';
+  $('#btnAddModrinth').classList.toggle('hidden', noAdd);
+  $('#btnAddFile').classList.toggle('hidden', noAdd);
+  $('#btnUpdates').classList.toggle('hidden', tab !== 'mods' || state.inst.loader === 'vanilla');
   $('#contentSearch').value = '';
   loadContent();
 }
@@ -748,18 +750,30 @@ function renderContent() {
     const vanillaMods = tab === 'mods' && state.inst.loader === 'vanilla';
     list.innerHTML = `<p class="empty">${q ? 'Ничего не нашлось.' : vanillaMods
       ? 'Это ванильная сборка: моды работают только с Fabric, Quilt или Forge. Создай новую сборку с загрузчиком.'
-      : tab === 'saves' ? 'Миров пока нет. Они появятся после игры.' : `Здесь пока пусто. Нажми «Добавить с Modrinth», чтобы найти ${KIND_NAMES[tab]}.`}</p>`;
+      : tab === 'saves' ? 'Миров пока нет. Они появятся после игры.'
+      : tab === 'screenshots' ? 'Скриншотов пока нет. В игре нажми F2, и снимок появится здесь.' : `Здесь пока пусто. Нажми «Добавить с Modrinth», чтобы найти ${KIND_NAMES[tab]}.`}</p>`;
     return;
   }
+  if (tab === 'screenshots') return renderShots(items);
   items.forEach((c, n) => {
     const row = document.createElement('div');
     row.className = 'crow' + (c.enabled ? '' : ' off');
     row.style.setProperty('--i', n);
     row.innerHTML = `<img class="inst-icon small" alt="">
       <div class="crow-body"><b>${esc(c.name)}</b><small>${esc(c.version ? c.version + ' · ' : '')}${esc(c.file)}</small></div>
-      ${tab === 'saves' ? '' : `<label class="switch" title="${c.enabled ? 'Выключить' : 'Включить'}"><input type="checkbox" ${c.enabled ? 'checked' : ''}><i></i></label>`}
+      ${tab === 'saves' ? '<button class="btn btn-iron mini-btn" data-backup title="Сохранить копию мира в папку backups сборки">Копия</button>' : `<label class="switch" title="${c.enabled ? 'Выключить' : 'Включить'}"><input type="checkbox" ${c.enabled ? 'checked' : ''}><i></i></label>`}
       <button class="icon-btn" title="Удалить">✕</button>`;
     instIcon(row.querySelector('img'), c.icon);
+    const bk = row.querySelector('[data-backup]');
+    if (bk) bk.onclick = async () => {
+      bk.disabled = true;
+      try {
+        const r = await api(km.instances.backupWorld(state.inst.id, c.file));
+        toast(`Копия мира сохранена (${fmtSize(r.size)})`);
+        api(km.showFile(r.file)).catch(() => {});
+      } catch (e) { toast(e.message, 'error'); }
+      bk.disabled = false;
+    };
     const sw = row.querySelector('.switch input');
     if (sw) sw.onchange = async () => {
       try { await api(km.instances.toggle(state.inst.id, tab, c.file)); } catch (e) { toast(e.message, 'error'); }
@@ -777,9 +791,82 @@ function renderContent() {
   });
 }
 
+function fmtSize(b) {
+  return b >= 1048576 ? `${(b / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(b / 1024))} КБ`;
+}
+
+function renderShots(items) {
+  const list = $('#contentList');
+  const grid = document.createElement('div');
+  grid.className = 'shot-grid';
+  items.forEach((c, n) => {
+    const el = document.createElement('div');
+    el.className = 'shot';
+    el.style.setProperty('--i', n);
+    el.title = 'Открыть';
+    el.innerHTML = `<img loading="lazy" alt=""><small>${esc(new Date(c.mtime).toLocaleString('ru-RU'))}</small><button class="icon-btn" title="Удалить">✕</button>`;
+    el.querySelector('img').src = `kmshot://shot/${encodeURIComponent(state.inst.id)}/${encodeURIComponent(c.file)}`;
+    el.onclick = () => api(km.openFile(c.path)).catch(e => toast(e.message, 'error'));
+    el.querySelector('.icon-btn').onclick = e => {
+      e.stopPropagation();
+      modal('Удалить скриншот?', `<p>${esc(c.file)}</p>`, [
+        { label: 'Отмена', cls: 'btn-iron' },
+        { label: 'Удалить', cls: 'btn-red', onClick: async () => {
+          el.classList.add('leaving');
+          try { await api(km.instances.removeFile(state.inst.id, 'screenshots', c.file)); } catch (err) { toast(err.message, 'error'); }
+          setTimeout(loadContent, 250);
+        } },
+      ]);
+    };
+    grid.appendChild(el);
+  });
+  list.appendChild(grid);
+}
+
+async function checkModUpdates() {
+  const btn = $('#btnUpdates');
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = '⟳ Ищем обновления…';
+  let list = [];
+  try { list = await api(km.instances.checkUpdates(state.inst.id)); }
+  catch (e) { toast(e.message, 'error'); return; }
+  finally { btn.disabled = false; btn.textContent = old; }
+  if (!list.length) return toast('Все моды уже самые свежие');
+  const rows = list.map((u, n) => `<label class="upd-row"><input type="checkbox" data-n="${n}" checked>
+    <span><b>${esc(u.name)}</b><small>${esc(u.from || u.file)} → <em>${esc(u.to)}</em></small></span></label>`).join('');
+  modal(`Есть обновления: ${list.length}`, `<p class="hint">Отметь, что обновить. Старые файлы заменятся новыми, выключенные моды останутся выключенными.</p><div class="upd-list">${rows}</div>`, [
+    { label: 'Не сейчас', cls: 'btn-iron' },
+    { label: 'Обновить', onClick: async () => {
+      const chosen = list.filter((u, n) => $(`#modalBody input[data-n="${n}"]`)?.checked);
+      if (!chosen.length) return;
+      taskStart('Обновляем моды…');
+      try {
+        const r = await api(km.instances.applyUpdates(state.inst.id, chosen));
+        taskEnd();
+        if (r.failed.length) modal('Обновлено не всё', `<p>Обновлено: ${r.updated}. Не получилось:</p><ul>${r.failed.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`);
+        else toast(`Обновлено модов: ${r.updated}`);
+      } catch (e) { taskEnd(); toast(e.message, 'error'); }
+      loadContent();
+    } },
+  ]);
+}
+
+async function exportInstance() {
+  taskStart('Сохраняем сборку…');
+  try {
+    const r = await api(km.instances.exportPack(state.inst.id));
+    taskEnd();
+    if (!r) return;
+    toast(`Сборка сохранена (${fmtSize(r.size)})`);
+    api(km.showFile(r.file)).catch(() => {});
+  } catch (e) { taskEnd(); toast(e.message, 'error'); }
+}
+
 function renderInstSettings() {
   const i = state.inst;
   $('#instEditName').value = i.name;
+  $('#instEditServer').value = i.server || '';
   const total = state.info?.totalMemMb || 8192;
   const opts = [0, 2048, 3072, 4096, 6144, 8192, 12288, 16384].filter(m => m < total);
   $('#instEditMem').innerHTML = opts.map(m => `<option value="${m}" ${m === (i.memoryMb || 0) ? 'selected' : ''}>${m ? fmtMem(m) : 'Как в общих настройках'}</option>`).join('');
@@ -823,6 +910,8 @@ $('#btnAddFile').onclick = async () => {
     if (n) { toast(`Добавлено файлов: ${n}`); loadContent(); }
   } catch (e) { toast(e.message, 'error'); }
 };
+$('#btnUpdates').onclick = checkModUpdates;
+$('#instExport').onclick = exportInstance;
 $('#btnOpenKind').onclick = () => api(km.openFolder(`instance:${state.inst.id}/${state.instTab}`)).catch(e => toast(e.message, 'error'));
 $('[data-inst-folder]').onclick = () => api(km.openFolder(`instance:${state.inst.id}`)).catch(e => toast(e.message, 'error'));
 $('#btnAddModrinth').onclick = () => openBrowser({ type: KIND_TYPE[state.instTab], inst: state.inst });
@@ -831,6 +920,7 @@ $('#instSave').onclick = async () => {
     state.inst = await api(km.instances.update(state.inst.id, {
       name: $('#instEditName').value, memoryMb: +$('#instEditMem').value,
       loader: state.editLoader, loaderVersion: state.editLoader === 'vanilla' ? '' : $('#instEditLv').value,
+      server: $('#instEditServer').value,
     }));
     $('#instName').textContent = state.inst.name;
     $('#instSub').textContent = instSub(state.inst);

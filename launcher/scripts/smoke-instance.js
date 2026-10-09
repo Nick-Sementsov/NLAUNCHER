@@ -81,6 +81,38 @@ async function build() {
     if (mods.length < 2) throw new Error(`модов установлено ${mods.length}, ожидалось 2`);
     return inst;
   }
+  if (mode === 'update') {
+    // Обновление модов, экспорт в .mrpack, импорт обратно и автовход на сервер
+    const modrinth = require('../src/core/modrinth');
+    const { download } = require('../src/core/net');
+    const inst = instances.create({ name: `Смоук обновлений ${wanted}`, mc: wanted, loader: 'fabric' });
+    await instances.installProject(inst.id, 'fabric-api', 'mod', onProgress);
+    const vs = await modrinth.versions('sodium', { mc: wanted, loader: 'fabric', type: 'mod' });
+    const old = vs[vs.length - 1];
+    const f = modrinth.primaryFile(old);
+    await download(f.url, path.join(instances.dir(inst.id), 'mods', f.filename));
+    console.log(`Поставили старый Sodium ${old.version_number} (свежий: ${vs[0].version_number})`);
+    const ups = await instances.checkUpdates(inst.id);
+    for (const u of ups) console.log(`  обновление: ${u.name} ${u.from} → ${u.to}`);
+    if (!ups.some(u => u.projectId === old.project_id)) throw new Error('обновление Sodium не нашлось');
+    const r = await instances.applyUpdates(inst.id, ups, onProgress);
+    if (r.failed.length) throw new Error('не обновилось: ' + r.failed.join('; '));
+    const left = await instances.checkUpdates(inst.id);
+    if (left.length) throw new Error('после обновления ещё остались обновления: ' + left.map(u => u.name).join(', '));
+    console.log(`Обновлено модов: ${r.updated}`);
+    const out = path.join(os.tmpdir(), 'km-smoke.mrpack');
+    const ex = await instances.exportMrpack(inst.id, out, onProgress);
+    console.log(`Экспорт: ссылками ${ex.linked}, внутри ${ex.inside}, ${ex.size} байт`);
+    if (ex.linked < 2) throw new Error('моды с Modrinth не попали в экспорт ссылками');
+    const copy = await instances.importPack(out, onProgress);
+    const a = instances.content(inst.id, 'mods').map(m => m.file).sort().join();
+    const b = instances.content(copy.id, 'mods').map(m => m.file).sort().join();
+    if (a !== b) throw new Error(`после импорта другие моды: ${b} вместо ${a}`);
+    console.log('Импорт экспортированной сборки совпал с оригиналом');
+    // автовход: сервера нет, но игра должна стартовать с аргументом входа
+    instances.update(copy.id, { server: '127.0.0.1:25565' });
+    return instances.get(copy.id);
+  }
   const loader = mode === 'forge' ? 'forge' : mode === 'quilt' ? 'quilt' : 'fabric';
   // 'latest' — самая свежая релизная версия из манифеста Mojang
   const mc = wanted === 'latest' ? (await require('../src/core/versions').list(false)).latest.release : wanted;
@@ -116,6 +148,7 @@ async function build() {
       output += line;
       if (!ok && MARKERS.some(m => m.test(output))) {
         ok = true;
+        if (mode === 'update' && !/--quickPlayMultiplayer 127\.0\.0\.1:25565/.test(output)) fail('игра запущена без автовхода на сервер');
         console.log(`\n✓ сборка ${mode}: игра запустилась с модами`);
         clearTimeout(timeout);
         setTimeout(() => process.exit(0), 500);

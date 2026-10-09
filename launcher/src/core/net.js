@@ -30,6 +30,25 @@ async function getJson(url, opts) {
   return JSON.parse(body);
 }
 
+function postJson(url, data, { timeout = 30000 } = {}) {
+  const body = Buffer.from(JSON.stringify(data));
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      method: 'POST', timeout,
+      headers: { 'User-Agent': UA, 'Content-Type': 'application/json', 'Content-Length': body.length },
+    }, async res => {
+      const chunks = [];
+      try { for await (const c of res) chunks.push(c); } catch (e) { return reject(e); }
+      const text = Buffer.concat(chunks).toString('utf8');
+      if (res.statusCode >= 400) return reject(new Error(`HTTP ${res.statusCode}: ${url}`));
+      try { resolve(JSON.parse(text)); } catch { reject(new Error('Неверный ответ сервера: ' + url)); }
+    });
+    req.on('error', reject);
+    req.on('timeout', () => req.destroy(new Error('Превышено время ожидания: ' + url)));
+    req.end(body);
+  });
+}
+
 async function download(url, dest, onProgress) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   const res = await request(url, { timeout: 60000 });
@@ -51,4 +70,4 @@ async function download(url, dest, onProgress) {
   fs.renameSync(tmp, dest);
 }
 
-module.exports = { request, getJson, download, UA };
+module.exports = { request, getJson, postJson, download, UA };

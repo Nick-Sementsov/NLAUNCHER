@@ -132,6 +132,7 @@ async function launch(target, { onProgress, onLog, onExit }) {
     mcVersion = inst.mc;
     gameDir = instances.dir(inst.id);
     if (inst.memoryMb) memoryMb = inst.memoryMb;
+    if (inst.server && target.joinServer !== false) joinServer = inst.server;
     let loaderVersion = inst.loaderVersion;
     if (inst.loader !== 'vanilla' && !loaderVersion) {
       // версия не закреплена: каждый запуск берём рекомендуемую (свежие исправления приходят сами)

@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://mc-heads.net https://crafatar.com https://cdn.modrinth.com https://media.forgecdn.net; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: kmshot: https://mc-heads.net https://crafatar.com https://cdn.modrinth.com https://media.forgecdn.net; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
 <title>KM Launcher</title>
 <link rel="stylesheet" href="style.css">
 <script src="boot.js"></script>
@@ -312,6 +312,7 @@
         <button class="tab" data-tab="resourcepacks">Ресурспаки</button>
         <button class="tab" data-tab="shaders">Шейдеры</button>
         <button class="tab" data-tab="saves">Миры</button>
+        <button class="tab" data-tab="screenshots">Скриншоты</button>
         <button class="tab" data-tab="settings">Настройки</button>
       </div>
       <div id="instContentPane">
@@ -319,6 +320,7 @@
           <input class="field" id="contentSearch" placeholder="Поиск…">
           <button class="btn btn-gold" id="btnAddModrinth">＋ Добавить с Modrinth</button>
           <button class="btn btn-iron" id="btnAddFile">Добавить файл</button>
+          <button class="btn btn-iron" id="btnUpdates">⟳ Обновить моды</button>
           <button class="btn btn-iron" id="btnOpenKind">Папка</button>
         </div>
         <div class="blocked-box hidden" id="blockedBox"></div>
@@ -338,6 +340,9 @@
             </div>
             <div id="instEditLvWrap"><label class="lbl">Версия загрузчика</label><select class="field" id="instEditLv"><option value="">Рекомендуемая (самая свежая)</option></select></div>
             <p class="hint" id="instLoaderInfo"></p>
+            <label class="lbl">Сразу заходить на сервер</label>
+            <input class="field" id="instEditServer" maxlength="80" placeholder="Например: play.example.com">
+            <p class="hint">Оставь пустым, чтобы попадать в главное меню. Если указан сервер, «Играть» сразу подключит к нему.</p>
             <div class="row-btns">
               <button class="btn btn-gold" id="instSave">Сохранить</button>
               <button class="btn btn-iron" data-inst-folder>Открыть папку</button>
@@ -349,6 +354,11 @@
             <div class="row-btns">
               <button class="btn btn-iron" id="instDuplicate">Сделать копию</button>
               <button class="btn btn-red" id="instDelete">Удалить сборку</button>
+            </div>
+            <h3>Поделиться</h3>
+            <p class="hint">Сохранит сборку в файл .mrpack: его можно отправить другу, и он добавит сборку через «Импорт файла» в KM Launcher, Prism или Modrinth App. Миры в файл не попадают.</p>
+            <div class="row-btns">
+              <button class="btn btn-gold" id="instExport">Сохранить в файл</button>
             </div>
           </div>
         </div>
