@@ -86,16 +86,55 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => app.quit());
 
+// последнее состояние обновления: окно могло ещё не загрузиться, когда оно пришло
+let updateState = null;
+function sendUpdate(st) { updateState = st; send('update:status', st); }
+handle('update:state', () => updateState);
+
 function setupUpdater() {
+  // для проверки окна обновления без настоящего релиза: KM_FAKE_UPDATE=1.9.0
+  if (process.env.KM_FAKE_UPDATE) {
+    const version = process.env.KM_FAKE_UPDATE;
+    win.webContents.once('did-finish-load', () => setTimeout(() => sendUpdate({
+      state: 'available', version, current: app.getVersion(),
+      notes: '<h2>Что нового</h2><ul><li>Новые зависимости модов</li><li>Окно обновления</li></ul>',
+    }), 2500));
+    handle('update:download', () => {
+      let p = 0;
+      const t = setInterval(() => {
+        p += 20;
+        sendUpdate({ state: 'downloading', version, percent: p });
+        if (p >= 100) { clearInterval(t); sendUpdate({ state: 'ready', version }); }
+      }, 400);
+    });
+    handle('update:install', () => {});
+    return;
+  }
   if (!app.isPackaged) return;
   try {
     const { autoUpdater } = require('electron-updater');
-    autoUpdater.autoDownload = true;
-    autoUpdater.on('update-available', i => send('update:status', { state: 'downloading', version: i.version }));
-    autoUpdater.on('update-downloaded', i => send('update:status', { state: 'ready', version: i.version }));
-    autoUpdater.on('error', () => {});
-    autoUpdater.checkForUpdates().catch(() => {});
-    ipcMain.handle('update:install', () => autoUpdater.quitAndInstall());
+    // качаем только после согласия игрока (окно «Вышло обновление»)
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+    let offered = null;
+    autoUpdater.on('update-available', i => {
+      if (offered === i.version) return;
+      offered = i.version;
+      const notes = Array.isArray(i.releaseNotes) ? i.releaseNotes.map(n => n.note).join('') : i.releaseNotes || '';
+      sendUpdate({ state: 'available', version: i.version, current: app.getVersion(), notes: String(notes).slice(0, 20000) });
+    });
+    autoUpdater.on('download-progress', p => sendUpdate({ state: 'downloading', version: offered, percent: Math.round(p.percent || 0) }));
+    autoUpdater.on('update-downloaded', i => sendUpdate({ state: 'ready', version: i.version }));
+    autoUpdater.on('error', e => { if (offered) sendUpdate({ state: 'error', version: offered, message: String(e?.message || e).slice(0, 300) }); });
+    const check = () => autoUpdater.checkForUpdates().catch(() => {});
+    check();
+    // лаунчер могут держать открытым часами: проверяем снова каждые 3 часа
+    setInterval(check, 3 * 60 * 60 * 1000);
+    handle('update:download', () => autoUpdater.downloadUpdate().catch(e => {
+      sendUpdate({ state: 'error', version: offered, message: String(e?.message || e).slice(0, 300) });
+    }));
+    // игра запущена — не закрываем её: обновление поставится, когда лаунчер закроют
+    handle('update:install', () => (launcher.isRunning() ? false : (autoUpdater.quitAndInstall(false, true), true)));
   } catch { /* обновления недоступны */ }
 }
 
@@ -202,8 +241,10 @@ handle('instances:addFiles', async (id, kind) => {
   instances.addFiles(id, kind, r.filePaths);
   return r.filePaths.length;
 });
-handle('instances:install', (id, projectId, type, source) =>
-  instances.installProject(id, projectId, type, p => send('content:progress', p), source === 'curseforge' ? 'curseforge' : 'modrinth'));
+handle('instances:install', (id, projectId, type, source, deps) =>
+  instances.installProject(id, projectId, type, p => send('content:progress', p), source === 'curseforge' ? 'curseforge' : 'modrinth',
+    new Set(), Array.isArray(deps) ? deps : null));
+handle('instances:plan', (id, projectId, type, source) => instances.planInstall(id, projectId, type, source === 'curseforge' ? 'curseforge' : 'modrinth'));
 handle('modpack:install', ref => {
   const progress = p => send('content:progress', p);
   return ref?.source === 'curseforge' ? instances.installCfPack(ref, progress) : instances.installMrpack(ref || {}, progress);

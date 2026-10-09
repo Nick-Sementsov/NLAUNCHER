@@ -554,16 +554,65 @@ km.on.exit(info => {
   }
 });
 
-km.on.update(u => {
+// ── Обновление лаунчера: спрашиваем окном ────────────────────────
+const upd = { asked: null, choice: null };
+function notesHtml(html) {
+  // из описания релиза берём только пункты первого раздела, как текст
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  const items = [...(doc.querySelector('ul')?.querySelectorAll('li') || [])].slice(0, 6).map(li => li.textContent.trim()).filter(Boolean);
+  return items.length ? `<ul class="upd-notes">${items.map(t => `<li>${esc(t.length > 160 ? t.slice(0, 157) + '…' : t)}</li>`).join('')}</ul>` : '';
+}
+function askUpdate(u) {
+  upd.asked = u.version;
+  modal(`Вышла новая версия ${u.version}`, `
+    <div class="upd-head"><svg class="upd-crest"><use href="#crest"/></svg>
+    <p>У тебя версия ${esc(u.current || '')}. Обновить лаунчер сейчас? Это займёт около минуты, лаунчер сам перезапустится.</p></div>
+    ${notesHtml(u.notes)}`, [
+    { label: 'Позже', cls: 'btn-iron', onClick: () => { upd.choice = 'later'; showUpdateBadge(u); } },
+    { label: 'Обновить', onClick: startUpdate },
+  ]);
+}
+function startUpdate() {
+  upd.choice = 'yes';
+  modal('Обновляем лаунчер', `<p id="updStage">Скачиваем обновление…</p><div class="bar upd-bar"><div class="bar-fill" id="updFill" style="width:0%"></div></div>`, []);
+  api(km.downloadUpdate()).catch(e => toast(e.message, 'error'));
+}
+async function finishUpdate(u) {
+  const ok = await api(km.installUpdate()).catch(() => false);
+  if (ok === false) {
+    modal('Обновление скачано', `<p>Сейчас идёт игра, поэтому лаунчер не перезапускается. Версия ${esc(u.version)} поставится сама, когда закроешь лаунчер.</p>`);
+  }
+}
+function showUpdateBadge(u) {
   const el = $('#updateBadge');
   el.classList.remove('hidden');
-  if (u.state === 'ready') {
-    el.textContent = `Обновление ${u.version}: установить`;
-    el.onclick = () => km.installUpdate();
-  } else {
-    el.textContent = `Скачиваем обновление ${u.version}…`;
+  el.textContent = u.state === 'ready' ? `Обновление ${u.version}: установить` : `Доступна версия ${u.version}`;
+  el.onclick = () => (u.state === 'ready' ? finishUpdate(u) : askUpdate(u));
+}
+function onUpdate(u) {
+  if (!u) return;
+  if (u.state === 'available') {
+    if (upd.asked === u.version) return;
+    // не перебиваем первое приветствие и заставку
+    const show = () => ($('#welcome') && !$('#welcome').classList.contains('hidden') ? setTimeout(show, 3000) : askUpdate(u));
+    setTimeout(show, 1500);
+  } else if (u.state === 'downloading') {
+    if ($('#updFill')) { $('#updFill').style.width = (u.percent || 0) + '%'; $('#updStage').textContent = `Скачиваем обновление… ${u.percent || 0}%`; }
+  } else if (u.state === 'ready') {
+    if (upd.choice === 'yes') {
+      if ($('#updStage')) { $('#updFill').style.width = '100%'; $('#updStage').textContent = 'Готово, перезапускаем…'; }
+      setTimeout(() => finishUpdate(u), 700);
+    } else showUpdateBadge(u);
+  } else if (u.state === 'error' && upd.choice === 'yes') {
+    upd.choice = null;
+    modal('Не получилось обновить', `<p>${esc(u.message || 'Ошибка сети')}</p><p class="hint">Попробуй позже или скачай установщик с GitHub.</p>`, [
+      { label: 'Закрыть', cls: 'btn-iron', onClick: () => showUpdateBadge({ ...u, state: 'available' }) },
+      { label: 'Ещё раз', onClick: startUpdate },
+    ]);
   }
-});
+}
+km.on.update(onUpdate);
+api(km.updateState()).then(onUpdate).catch(() => {});
 
 // ── Сборки (как в Prism) ────────────────────────────────────────
 const LOADER_NAMES = { vanilla: 'Ванилла', fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge' };
@@ -998,6 +1047,7 @@ async function searchBrowser(reset) {
 function browserRow(h, n) {
   const row = document.createElement('div');
   row.className = 'mrow';
+  row.dataset.id = h.id;
   row.style.setProperty('--i', n);
   const have = browser.installed.has(h.id);
   row.innerHTML = `<img class="inst-icon" alt="">
@@ -1022,10 +1072,23 @@ function browserRow(h, n) {
         openInstance(inst.id);
         return;
       }
+      // сначала показываем, что ещё нужно моду, и спрашиваем
+      let chosen = null;
+      if (browser.type === 'mod') {
+        btn.textContent = 'Смотрим…';
+        const plan = await api(km.instances.plan(browser.inst.id, h.id, browser.type, browser.source));
+        if (plan.deps.some(d => !d.installed)) {
+          chosen = await askDeps(plan);
+          if (!chosen) { btn.disabled = false; btn.textContent = 'Установить'; return; }
+        }
+      }
+      btn.textContent = 'Качаем…';
       taskStart(`Ставим ${h.title}…`);
-      await api(km.instances.install(browser.inst.id, h.id, browser.type, browser.source));
+      await api(km.instances.install(browser.inst.id, h.id, browser.type, browser.source, chosen));
       taskEnd();
       browser.installed.add(h.id);
+      (chosen || []).forEach(d => browser.installed.add(d));
+      if (chosen?.length) refreshBrowserButtons();
       btn.textContent = 'Установлено';
       btn.className = 'btn btn-iron';
       celebrate(btn);
@@ -1039,6 +1102,44 @@ function browserRow(h, n) {
     } finally { row.classList.remove('working'); }
   };
   return row;
+}
+
+// Окно «Этому моду нужны ещё…»: обязательные отмечены, необязательные по желанию
+function askDeps(plan) {
+  return new Promise(resolve => {
+    const need = plan.deps.filter(d => !d.installed);
+    const have = plan.deps.filter(d => d.installed);
+    const rows = need.map((d, n) => `<label class="dep-row${d.required ? ' req' : ''}" style="--i:${n}">
+        <input type="checkbox" data-dep="${esc(d.id)}" ${d.required ? 'checked' : ''}>
+        <img class="inst-icon small" alt="" data-icon="${esc(d.icon)}">
+        <span><b>${esc(d.title)}</b> <em>${d.required ? 'обязательно' : 'по желанию'}</em><small>${esc(d.description)}</small></span>
+      </label>`).join('');
+    const req = need.filter(d => d.required).length;
+    modal(`«${plan.title}» просит ещё ${need.length === 1 ? 'один мод' : 'моды'}`, `
+      <p class="hint">${req ? 'Без обязательных мод не запустится, они уже отмечены. ' : ''}${need.length - req ? 'Необязательные добавляют возможности, отметь, если хочешь.' : ''}</p>
+      <div class="dep-list">${rows}</div>
+      ${have.length ? `<p class="hint">Уже стоит: ${have.map(d => esc(d.title)).join(', ')}</p>` : ''}
+      <p class="hint dep-warn hidden">Без обязательных модов игра может вылететь.</p>`, [
+      { label: 'Отмена', cls: 'btn-iron', onClick: () => resolve(null) },
+      { label: 'Скачать', onClick: () => resolve([...$$('#modalBody [data-dep]')].filter(c => c.checked).map(c => c.dataset.dep)) },
+    ]);
+    $$('#modalBody img[data-icon]').forEach(img => instIcon(img, img.dataset.icon));
+    $$('#modalBody .dep-row.req input').forEach(c => c.onchange = () =>
+      $('#modalBody .dep-warn').classList.toggle('hidden', [...$$('#modalBody .dep-row.req input')].every(x => x.checked)));
+    // кнопки «Скачать» с числом выбранного
+    const go = $('#modalActions .btn-gold');
+    const count = () => { const n = $$('#modalBody [data-dep]:checked').length; go.textContent = n ? `Скачать мод и ещё ${n}` : 'Скачать только мод'; };
+    $$('#modalBody [data-dep]').forEach(c => c.addEventListener('change', count));
+    count();
+  });
+}
+
+function refreshBrowserButtons() {
+  const have = new Set([...browser.installed].map(String));
+  $$('#browserList .mrow').forEach(r => {
+    const b = r.querySelector('button');
+    if (have.has(r.dataset.id) && !b.disabled) { b.disabled = true; b.textContent = 'Установлено'; b.className = 'btn btn-iron'; }
+  });
 }
 
 function setBrowserSource(src, quiet) {

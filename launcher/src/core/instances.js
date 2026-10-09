@@ -230,13 +230,14 @@ async function resolveProject(source, projectId, meta, type, loader) {
     if (!f && list) throw new Error(`«${proj.name}» нет для ${want}`);
     if (!f || !f.downloadUrl) {
       const twin = await modrinthTwin(proj, meta.mc, loader, TYPE_DIR[type]);
-      if (twin) return { ...twin, deps: [], source: 'modrinth' };
+      if (twin) return { ...twin, deps: [], optDeps: [], source: 'modrinth' };
       throw new Error(`CurseForge не отдаёт «${proj.name}» лаунчерам (так решил автор). Скачай ${f ? 'файл ' + f.fileName : 'мод'} с сайта ${curseforge.pageUrl(proj)} и добавь кнопкой «Добавить файл».`);
     }
     return {
       id: String(proj.id), title: proj.name, icon: proj.logo?.thumbnailUrl || '',
       url: f.downloadUrl, fileName: f.fileName, sha1: curseforge.sha1Of(f), versionId: String(f.id), version: f.displayName,
       deps: (f.dependencies || []).filter(d => d.relationType === 3).map(d => String(d.modId)),
+      optDeps: (f.dependencies || []).filter(d => d.relationType === 2).map(d => String(d.modId)),
     };
   }
   const [proj, vers] = await Promise.all([
@@ -250,10 +251,36 @@ async function resolveProject(source, projectId, meta, type, loader) {
     id: proj.id, title: proj.title, icon: proj.icon_url || '',
     url: file.url, fileName: file.filename, sha1: file.hashes?.sha1, versionId: v.id, version: v.version_number,
     deps: (v.dependencies || []).filter(d => d.dependency_type === 'required' && d.project_id).map(d => d.project_id),
+    optDeps: (v.dependencies || []).filter(d => d.dependency_type === 'optional' && d.project_id).map(d => d.project_id),
   };
 }
 
-async function installProject(id, projectId, type, onProgress, source = 'modrinth', seen = new Set()) {
+// Что поставится вместе с модом: обязательные и необязательные зависимости, чтобы спросить игрока
+async function planInstall(id, projectId, type, source = 'modrinth') {
+  const meta = readMeta(id);
+  if (!meta) throw new Error('Сборка не найдена');
+  const loader = meta.loader === 'vanilla' ? null : meta.loader;
+  if (type === 'mod' && !loader) throw new Error('В ванильную сборку нельзя ставить моды: создай сборку с Fabric, Quilt или Forge');
+  const p = await resolveProject(source, String(projectId), meta, type, loader);
+  const installed = new Set(Object.values(meta.files || {}).map(f => f.projectId));
+  const src = p.source || source;
+  const ids = [...new Set([...(p.deps || []), ...(p.optDeps || [])])].filter(d => d !== p.id);
+  const deps = await Promise.all(ids.map(async dep => {
+    const required = (p.deps || []).includes(dep);
+    try {
+      const info = src === 'curseforge' ? await curseforge.project(dep) : await modrinth.project(dep);
+      return src === 'curseforge'
+        ? { id: dep, title: info.name, icon: info.logo?.thumbnailUrl || '', description: info.summary || '', required, installed: installed.has(dep) }
+        : { id: dep, title: info.title, icon: info.icon_url || '', description: info.description || '', required, installed: installed.has(info.id) };
+    } catch { return { id: dep, title: dep, icon: '', description: '', required, installed: installed.has(dep) }; }
+  }));
+  // сначала обязательные, потом по имени
+  deps.sort((a, b) => (b.required - a.required) || a.title.localeCompare(b.title));
+  return { id: p.id, title: p.title, icon: p.icon, version: p.version, source: src, deps };
+}
+
+// chosen: какие зависимости выбрал игрок (null — все обязательные, как раньше)
+async function installProject(id, projectId, type, onProgress, source = 'modrinth', seen = new Set(), chosen = null) {
   const meta = readMeta(id);
   if (!meta) throw new Error('Сборка не найдена');
   projectId = String(projectId);
@@ -284,7 +311,8 @@ async function installProject(id, projectId, type, onProgress, source = 'modrint
   // обязательные зависимости (например, Fabric API)
   if (type === 'mod') {
     const installed = new Set(Object.values(readMeta(id).files || {}).map(f => f.projectId));
-    for (const dep of p.deps) {
+    const wanted = Array.isArray(chosen) ? chosen.map(String) : p.deps;
+    for (const dep of wanted) {
       if (installed.has(dep)) continue;
       await installProject(id, dep, 'mod', onProgress, source, seen);
     }
@@ -621,5 +649,5 @@ function backupWorld(id, world) {
 module.exports = {
   dir, list, get, create, update, remove, duplicate,
   content, toggle, removeFile, addFiles, installProject, installMrpack, installCfPack, importPack, KINDS,
-  checkUpdates, applyUpdates, exportMrpack, backupWorld,
+  checkUpdates, applyUpdates, exportMrpack, backupWorld, planInstall,
 };
