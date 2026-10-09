@@ -1055,47 +1055,54 @@ function browserRow(h, n) {
     <button class="btn ${have ? 'btn-iron' : 'btn-gold'}" ${have ? 'disabled' : ''}>${have ? 'Установлено' : browser.type === 'modpack' ? 'Скачать' : 'Установить'}</button>`;
   instIcon(row.querySelector('img'), h.icon);
   const btn = row.querySelector('button');
+  const label = btn.textContent;
   btn.onclick = async () => {
     btn.disabled = true;
-    btn.textContent = 'Качаем…';
     row.classList.add('working');
     try {
+      // сначала спрашиваем: точно ставить? и что ещё нужно моду
+      let plan = { title: h.title, icon: h.icon, description: h.description, deps: [] };
+      if (browser.type === 'mod') {
+        btn.textContent = 'Смотрим…';
+        plan = { ...plan, ...await api(km.instances.plan(browser.inst.id, h.id, browser.type, browser.source)) };
+      }
+      row.classList.remove('working');
+      const chosen = await askInstall(plan, h);
+      if (!chosen) { btn.disabled = false; btn.textContent = label; return; }
+      row.classList.add('working');
+      btn.textContent = 'Качаем…';
+      rowProgress(row, 'Готовимся…', 0);
       if (browser.type === 'modpack') {
         taskStart(`Скачиваем ${h.title}…`);
         const inst = await api(km.modpack.install({ projectId: h.id, source: browser.source }));
         taskEnd();
+        rowProgress(row, 'Готово!', 100);
         toast(`Сборка «${inst.name}» готова к игре!`);
         if (inst.blocked?.length) setTimeout(() => showBlocked(inst.blocked), 600);
         celebrate(btn);
-        $('#browser').classList.add('hidden');
-        await loadInstances();
-        openInstance(inst.id);
+        setTimeout(async () => {
+          $('#browser').classList.add('hidden');
+          await loadInstances();
+          openInstance(inst.id);
+        }, 700);
         return;
       }
-      // сначала показываем, что ещё нужно моду, и спрашиваем
-      let chosen = null;
-      if (browser.type === 'mod') {
-        btn.textContent = 'Смотрим…';
-        const plan = await api(km.instances.plan(browser.inst.id, h.id, browser.type, browser.source));
-        if (plan.deps.some(d => !d.installed)) {
-          chosen = await askDeps(plan);
-          if (!chosen) { btn.disabled = false; btn.textContent = 'Установить'; return; }
-        }
-      }
-      btn.textContent = 'Качаем…';
       taskStart(`Ставим ${h.title}…`);
-      await api(km.instances.install(browser.inst.id, h.id, browser.type, browser.source, chosen));
+      await api(km.instances.install(browser.inst.id, h.id, browser.type, browser.source, browser.type === 'mod' ? chosen : null));
       taskEnd();
+      rowProgress(row, 'Готово!', 100);
+      setTimeout(() => rowProgress(row), 1200);
       browser.installed.add(h.id);
-      (chosen || []).forEach(d => browser.installed.add(d));
-      if (chosen?.length) refreshBrowserButtons();
+      chosen.forEach(d => browser.installed.add(d));
+      if (chosen.length) refreshBrowserButtons();
       btn.textContent = 'Установлено';
       btn.className = 'btn btn-iron';
       celebrate(btn);
-      toast(`${h.title}: установлено`);
+      toast(chosen.length ? `${h.title} и ещё ${chosen.length}: установлено` : `${h.title}: установлено`);
       loadContent();
     } catch (e) {
       taskEnd();
+      rowProgress(row);
       btn.disabled = false;
       btn.textContent = 'Повторить';
       showError(e.message);
@@ -1104,33 +1111,57 @@ function browserRow(h, n) {
   return row;
 }
 
-// Окно «Этому моду нужны ещё…»: обязательные отмечены, необязательные по желанию
-function askDeps(plan) {
+// полоска загрузки прямо в строке каталога, где нажали «Установить»
+function rowProgress(row, stage, percent) {
+  let el = row.querySelector('.mrow-prog');
+  if (stage === undefined) { el?.remove(); if (browser.progRow === row) browser.progRow = null; return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'mrow-prog';
+    el.innerHTML = '<span></span><div class="bar"><div class="bar-fill"></div></div>';
+    row.appendChild(el);
+  }
+  browser.progRow = row;
+  el.querySelector('span').textContent = stage;
+  el.querySelector('.bar-fill').style.width = (percent || 0) + '%';
+}
+
+// Окно «Точно установить?»: что ставим, куда, и какие моды нужны ещё (обязательные отмечены)
+function askInstall(plan, h) {
   return new Promise(resolve => {
+    const pack = browser.type === 'modpack';
     const need = plan.deps.filter(d => !d.installed);
     const have = plan.deps.filter(d => d.installed);
+    const req = need.filter(d => d.required).length;
     const rows = need.map((d, n) => `<label class="dep-row${d.required ? ' req' : ''}" style="--i:${n}">
         <input type="checkbox" data-dep="${esc(d.id)}" ${d.required ? 'checked' : ''}>
         <img class="inst-icon small" alt="" data-icon="${esc(d.icon)}">
         <span><b>${esc(d.title)}</b> <em>${d.required ? 'обязательно' : 'по желанию'}</em><small>${esc(d.description)}</small></span>
       </label>`).join('');
-    const req = need.filter(d => d.required).length;
-    modal(`«${plan.title}» просит ещё ${need.length === 1 ? 'один мод' : 'моды'}`, `
-      <p class="hint">${req ? 'Без обязательных мод не запустится, они уже отмечены. ' : ''}${need.length - req ? 'Необязательные добавляют возможности, отметь, если хочешь.' : ''}</p>
-      <div class="dep-list">${rows}</div>
+    const where = pack
+      ? 'Будет создана новая сборка со всеми её модами и настройками.'
+      : `Куда: сборка «${esc(browser.inst.name)}» (${esc(instSub(browser.inst))})${plan.version ? `<br>Версия: ${esc(plan.version)}` : ''}`;
+    modal(pack ? 'Скачать сборку?' : 'Установить?', `
+      <div class="ask-head"><img class="inst-icon" alt="" data-icon="${esc(plan.icon || h.icon || '')}">
+        <div><b>${esc(plan.title)}</b><small>${esc(h.description || '')}</small></div></div>
+      <p class="hint ask-where">${where}</p>
+      ${need.length ? `<h4 class="dep-title">Этому моду нужны ещё:</h4>
+        <p class="hint">${req ? 'Без обязательных мод не запустится, они уже отмечены. ' : ''}${need.length - req ? 'Необязательные добавляют возможности, отметь, если хочешь.' : ''}</p>
+        <div class="dep-list">${rows}</div>` : ''}
       ${have.length ? `<p class="hint">Уже стоит: ${have.map(d => esc(d.title)).join(', ')}</p>` : ''}
       <p class="hint dep-warn hidden">Без обязательных модов игра может вылететь.</p>`, [
       { label: 'Отмена', cls: 'btn-iron', onClick: () => resolve(null) },
-      { label: 'Скачать', onClick: () => resolve([...$$('#modalBody [data-dep]')].filter(c => c.checked).map(c => c.dataset.dep)) },
+      { label: pack ? 'Да, скачать' : 'Да, установить', onClick: () => resolve([...$$('#modalBody [data-dep]')].filter(c => c.checked).map(c => c.dataset.dep)) },
     ]);
     $$('#modalBody img[data-icon]').forEach(img => instIcon(img, img.dataset.icon));
     $$('#modalBody .dep-row.req input').forEach(c => c.onchange = () =>
       $('#modalBody .dep-warn').classList.toggle('hidden', [...$$('#modalBody .dep-row.req input')].every(x => x.checked)));
-    // кнопки «Скачать» с числом выбранного
-    const go = $('#modalActions .btn-gold');
-    const count = () => { const n = $$('#modalBody [data-dep]:checked').length; go.textContent = n ? `Скачать мод и ещё ${n}` : 'Скачать только мод'; };
-    $$('#modalBody [data-dep]').forEach(c => c.addEventListener('change', count));
-    count();
+    if (need.length) {
+      const go = $('#modalActions .btn-gold');
+      const count = () => { const n = $$('#modalBody [data-dep]:checked').length; go.textContent = n ? `Установить с ещё ${n}` : 'Установить только мод'; };
+      $$('#modalBody [data-dep]').forEach(c => c.addEventListener('change', count));
+      count();
+    }
   });
 }
 
@@ -1188,6 +1219,7 @@ function taskEnd() {
 km.on.content(p => {
   $('#taskStage').textContent = p.stage;
   $('#taskFill').style.width = (p.percent || 0) + '%';
+  if (browser.progRow?.isConnected) rowProgress(browser.progRow, p.stage, p.percent);
 });
 
 // ── Заставка: врата открываются, клик пропускает ─────────────────

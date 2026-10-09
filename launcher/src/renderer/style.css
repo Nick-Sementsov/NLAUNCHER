@@ -958,3 +958,15 @@ body.theme-switch * { transition: background-color .5s, border-color .5s, color 
 .upd-notes li:nth-child(2) { animation-delay: .06s; } .upd-notes li:nth-child(3) { animation-delay: .12s; }
 .upd-notes li:nth-child(4) { animation-delay: .18s; } .upd-notes li:nth-child(5) { animation-delay: .24s; }
 .upd-bar { margin-top: 12px; }
+
+/* окно «Установить?» и полоска загрузки в строке каталога */
+.ask-head { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; animation: fadeUp .35s ease both; }
+.ask-head .inst-icon { width: 56px; height: 56px; animation: icoBounce .45s cubic-bezier(.2,1.4,.4,1) both; }
+.ask-head b { display: block; font-family: var(--f-head); font-weight: 700; font-size: 21px; }
+.ask-head small { display: block; font-size: 13px; opacity: .8; }
+.ask-where { margin-top: 10px; }
+.dep-title { margin-top: 14px; font-family: var(--f-head); font-size: 17px; }
+.mrow-prog { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-soft); animation: fadeUp .25s ease both; }
+.mrow-prog span { flex: 0 0 auto; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow-prog .bar { flex: 1; height: 9px; }
+.mrow-prog .bar-fill { height: 100%; transition: width .25s ease; }
